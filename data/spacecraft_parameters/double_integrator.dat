@@ -1,0 +1,10 @@
+CONSTANTS : MU [km^3.s^-2], LU [km], WU [s^-1], MASSU [kg]. TU [s], VU = LU * WU [km.s^-1], THRUSTU = 1000 * VU * MASSU * WU [N].
+1
+1
+1
+1
+SPACECRAFT PARAMETERS : INITIAL MASS [MASSU], DRY MASS [MASSU], THRUST [THRUSTU], ISP [TU].
+1
+1
+1
+1
