@@ -17,6 +17,9 @@ from scipy.stats import chi2, multivariate_normal
 from misc import get_Lagrange_point
 from classes import Dataset
 
+plt.rcParams.update({'font.size': 15})
+
+
 
 """
     Plots the specific points for a given dynamical system (two-body and 
@@ -64,6 +67,31 @@ def plot_system_points(dataset, axis_0, axis_1, ax,
         # Get names
         primary_names = dataset.dynamical_system.split(" ")[1].split("-")
 
+        offset_1_x, offset_1_y, offset_2_x, offset_2_y, offset_p2_x, offset_p2_y = [0, 0, 0, 0, 0, 0]
+        if ("halo" in dataset.file_name and axis_1 == 2):
+            offset_1_x = 0.0
+            offset_1_y = -0.025
+            offset_2_x = -0.02
+            offset_2_y = -0.025
+        if ("halo" in dataset.file_name and axis_1 == 1):
+            offset_1_x = -0.02
+            offset_1_y = 0.025
+            offset_2_x = -0.03
+            offset_2_y = 0.025
+        if ("nrho" in dataset.file_name):
+            offset_1_x = 0
+            offset_1_y = 0
+            offset_2_x = -0.05
+            offset_2_y = 0
+            offset_p2_x = -0.11
+        if ("dro_to_dro" in dataset.file_name):
+            offset_1_x = 0
+            offset_1_y = 0.02
+            offset_2_x = -0.075
+            offset_2_y = 0.02
+            offset_p2_x = -0.1
+            offset_p2_y = 0.02
+
         # Plots
         if list_plots[0]: # First primary
             ax.scatter(coord_P1[axis_0], coord_P1[axis_1],
@@ -75,19 +103,19 @@ def plot_system_points(dataset, axis_0, axis_1, ax,
         if list_plots[1]: # Second primary
             ax.scatter(coord_P2[axis_0], coord_P2[axis_1],
                        color=list_colors[1], marker=list_markers[1])
-            ax.text(coord_P2[axis_0], coord_P2[axis_1],
+            ax.text(coord_P2[axis_0]+offset_p2_x, coord_P2[axis_1]+offset_p2_y,
                     " " + primary_names[1])
             
         if list_plots[2]: # Lagrange point 1
             ax.scatter(coord_L1[axis_0], coord_L1[axis_1],
                        color=list_colors[2], marker=list_markers[2])
-            ax.text(coord_L1[axis_0], coord_L1[axis_1],
+            ax.text(coord_L1[axis_0]+offset_1_x, coord_L1[axis_1]+offset_1_y,
                     " $L_1$")
         
         if list_plots[3]: # Lagrange point 2
             ax.scatter(coord_L2[axis_0], coord_L2[axis_1],
                        color=list_colors[3], marker=list_markers[3])  
-            ax.text(coord_L2[axis_0], coord_L2[axis_1],
+            ax.text(coord_L2[axis_0]+offset_2_x, coord_L2[axis_1]+offset_2_y,
                     " $L_2$")
         
 """
@@ -299,8 +327,9 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     dpi = 200
     
     # Axes
-    axis_0 = 0
-    axis_1 = 1
+    list_axis = [[0, 1]]
+    if "halo" in dataset.file_name:
+        list_axis = [[0, 1], [0, 2]]
     
     # Ellipses
     ellipse_color = "#4a90e2"
@@ -308,11 +337,11 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     ellipse_linewidth = 0.8
     plot_CL = True
     if "mars" in dataset.file_name:
-        ellipse_scale = 1e4
+        ellipse_scale = 5e4
     elif "halo" in dataset.file_name:
         ellipse_scale = 3e5
     elif "nrho" in dataset.file_name:
-        ellipse_scale = 1e5
+        ellipse_scale = 2e5
     elif "dro_to_dro" in dataset.file_name:
         ellipse_scale = 1e4
     elif "lyapunov" in dataset.file_name:
@@ -347,7 +376,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     linewidth_trajectory = 1.5
 
     # Sample
-    color_sample = "#7f7f7f"
+    color_sample = "#9a7bb5"
     max_sample_size = 200
     sample_alpha = 0.3
     sample_linewidth = 0.5
@@ -375,135 +404,139 @@ def plot_2d(dataset, dataset_sample=Dataset()):
         if (dataset.list_dataset_names[i][0] == "Nominal state"):
             data_state = dataset.list_datasets[i].copy()
             list_names_state = dataset.list_dataset_names[i].copy()
-    coord_0 = data_state[axis_0,:]
-    coord_1 = data_state[axis_1,:]
 
-    # Get sample
-    sample_size = min(max_sample_size, int(len(dataset_sample.list_dataset_names)/4))
-    coord_0_sample = []
-    coord_1_sample = []
-    if sample_size != 0:
-        nb_datadets = len(dataset_sample.list_dataset_names)
-        for i in range(0, sample_size):
-            for j in range(nb_datadets):
-                if (dataset_sample.list_dataset_names[j][0] == "Sample state " + str(i)):
-                    data_control_sample = dataset_sample.list_datasets[j].copy()
-            coord_0_sample.append(data_control_sample[axis_0,:])
-            coord_1_sample.append(data_control_sample[axis_1,:])
+    for axies in list_axis:
+        axis_0 = axies[0]
+        axis_1 = axies[1]
+        coord_0 = data_state[axis_0,:]
+        coord_1 = data_state[axis_1,:]
 
-    # Normalisation
-    if denormalise:
-        LU = dataset.spacecraft_parameters.constants.LU
-        coord_0 *= LU
-        coord_1 *= LU
+        # Get sample
+        sample_size = min(max_sample_size, int(len(dataset_sample.list_dataset_names)/4))
+        coord_0_sample = []
+        coord_1_sample = []
+        if sample_size != 0:
+            nb_datadets = len(dataset_sample.list_dataset_names)
+            for i in range(0, sample_size):
+                for j in range(nb_datadets):
+                    if (dataset_sample.list_dataset_names[j][0] == "Sample state " + str(i)):
+                        data_control_sample = dataset_sample.list_datasets[j].copy()
+                coord_0_sample.append(data_control_sample[axis_0,:])
+                coord_1_sample.append(data_control_sample[axis_1,:])
+
+        # Normalisation
+        if denormalise:
+            LU = dataset.spacecraft_parameters.constants.LU
+            coord_0 *= LU
+            coord_1 *= LU
+
+            # Sample
+            if sample_size != 0:
+                for i in range(sample_size):
+                    coord_0_sample[i] = LU*coord_0_sample[i]
+                    coord_1_sample[i] = LU*coord_1_sample[i]
+            
+            # Labels
+            list_names_state[axis_0 + 1] = list_names_state[axis_0 + 1].replace(
+                "LU", "km")
+            list_names_state[axis_1 + 1] = list_names_state[axis_1 + 1].replace(
+                "LU", "km")
+
+        if interpolation:
+            t_old = np.linspace(0, 1, len(coord_0))  
+            t_new = np.linspace(0, 1, interpolation_rate*len(coord_0))  
+            
+            # Sample + scaling
+            if sample_size != 0:
+                for i in range(sample_size):
+                    coord_0_sample[i] = interpolate.interp1d(
+                        t_old, coord_0 + ellipse_scale*(coord_0_sample[i] - coord_0), kind='cubic')(t_new)
+                    coord_1_sample[i] = interpolate.interp1d(
+                        t_old, coord_1 + ellipse_scale*(coord_1_sample[i] - coord_1), kind='cubic')(t_new)
+
+            coord_0 = interpolate.interp1d(t_old, coord_0, kind='cubic')(t_new)
+            coord_1 = interpolate.interp1d(t_old, coord_1, kind='cubic')(t_new)
+
+        # Create plot
+        fig = plt.figure(dpi=dpi)
+        ax = fig.add_subplot()
+        ax.set_aspect("equal")
+
+        # Set labels
+        ax.set_xlabel(list_names_state[axis_0 + 1])
+        ax.set_ylabel(list_names_state[axis_1 + 1])
 
         # Sample
         if sample_size != 0:
             for i in range(sample_size):
-                coord_0_sample[i] = LU*coord_0_sample[i]
-                coord_1_sample[i] = LU*coord_1_sample[i]
+                ax.plot(coord_0_sample[i], coord_1_sample[i],
+                    alpha=sample_alpha,
+                    linewidth=sample_linewidth,
+                    color=color_sample,
+                    zorder=1)
         
-        # Labels
-        list_names_state[axis_0 + 1] = list_names_state[axis_0 + 1].replace(
-            "LU", "km")
-        list_names_state[axis_1 + 1] = list_names_state[axis_1 + 1].replace(
-            "LU", "km")
-
-    if interpolation:
-        t_old = np.linspace(0, 1, len(coord_0))  
-        t_new = np.linspace(0, 1, interpolation_rate*len(coord_0))  
+        # Plot state dispersion
+        plot_state_distribution(dataset, axis_0, axis_1, ax,
+            plot_CL, ellipse_scale, ellipse_alpha,
+            ellipse_color, ellipse_linewidth, denormalise)
         
-        # Sample + scaling
-        if sample_size != 0:
-            for i in range(sample_size):
-                coord_0_sample[i] = interpolate.interp1d(
-                    t_old, coord_0 + ellipse_scale*(coord_0_sample[i] - coord_0), kind='cubic')(t_new)
-                coord_1_sample[i] = interpolate.interp1d(
-                    t_old, coord_1 + ellipse_scale*(coord_1_sample[i] - coord_1), kind='cubic')(t_new)
-
-        coord_0 = interpolate.interp1d(t_old, coord_0, kind='cubic')(t_new)
-        coord_1 = interpolate.interp1d(t_old, coord_1, kind='cubic')(t_new)
-
-    # Create plot
-    fig = plt.figure(dpi=dpi)
-    ax = fig.add_subplot()
-    ax.set_aspect("equal")
-
-    # Set labels
-    ax.set_xlabel(list_names_state[axis_0 + 1])
-    ax.set_ylabel(list_names_state[axis_1 + 1])
-
-    # Sample
-    if sample_size != 0:
-        for i in range(sample_size):
-            ax.plot(coord_0_sample[i], coord_1_sample[i],
-                alpha=sample_alpha,
-                linewidth=sample_linewidth,
-                color=color_sample,
-                zorder=1)
-    
-    # Plot state dispersion
-    plot_state_distribution(dataset, axis_0, axis_1, ax,
-        plot_CL, ellipse_scale, ellipse_alpha,
-        ellipse_color, ellipse_linewidth, denormalise)
-    
-    # Plot reference orbits
-    plot_reference_orbits(dataset, axis_0, axis_1, ax,
-                          list_colors_reference,
-                          list_linestyles_references,
-                          denormalise)
-    
-    # Plot departure and arrival points
-    plot_departure_arrival(dataset, axis_0, axis_1, ax,
-                           list_colors_departure_arrival,
-                           list_markers_departure_arrival,
+        # Plot reference orbits
+        plot_reference_orbits(dataset, axis_0, axis_1, ax,
+                              list_colors_reference,
+                              list_linestyles_references,
+                              denormalise)
+        
+        # Plot departure and arrival points
+        plot_departure_arrival(dataset, axis_0, axis_1, ax,
+                               list_colors_departure_arrival,
+                               list_markers_departure_arrival,
+                               denormalise)
+        
+        # Plot system points
+        plot_system_points(dataset, axis_0, axis_1, ax,
+                           list_colors_system_points,
+                           list_markers_system_points,
+                           list_plots_system_points,
                            denormalise)
-    
-    # Plot system points
-    plot_system_points(dataset, axis_0, axis_1, ax,
-                       list_colors_system_points,
-                       list_markers_system_points,
-                       list_plots_system_points,
-                       denormalise)
-    
-    # Plot Thrust
-    if show_thrust:
-        plot_thrust_vector(dataset, axis_0, axis_1,
-                           ax, thurst_alpha, thrust_color,
-                           denormalise)
-    
-    # Plot trajectory
-    ax.plot(coord_0, coord_1,
-            color=color_trajectory,
-            label='Trajectory',
-            zorder=11,
-            linewidth=linewidth_trajectory)
-
-    # Layout
-    fig.tight_layout(pad=0.2)
-
-    if show_grid:
-        plt.grid(alpha=0.5, color="#d3d3d3")
-    
-    if show_legend: 
-        plt.legend(loc=legend_loc)
-    
-    if save_figure:
-        # Get adress
-        file_name = dataset.file_name.replace(
-            "robust_trajectory", "plots")
-                
-        # Add signature
-        signature = ("_robust_2d_" + str(axis_0) + "_" + str(axis_1)
-            + "." + saving_format)
-        file_name = file_name.replace(
-            ".dat", signature)
         
-        # Save
-        plt.savefig(file_name, bbox_inches='tight')    
-       
-    if show_plot:   
-        plt.show()
-    else:
-        plt.close(fig)
+        # Plot Thrust
+        if show_thrust:
+            plot_thrust_vector(dataset, axis_0, axis_1,
+                               ax, thurst_alpha, thrust_color,
+                               denormalise)
+        
+        # Plot trajectory
+        ax.plot(coord_0, coord_1,
+                color=color_trajectory,
+                label='Trajectory',
+                zorder=11,
+                linewidth=linewidth_trajectory)
+
+        # Layout
+        fig.tight_layout(pad=0.2)
+
+        if show_grid:
+            plt.grid(alpha=0.5, color="#d3d3d3")
+        
+        if show_legend: 
+            plt.legend(loc=legend_loc)
+        
+        if save_figure:
+            # Get adress
+            file_name = dataset.file_name.replace(
+                "robust_trajectory", "plots")
+                    
+            # Add signature
+            signature = ("_robust_2d_" + str(axis_0) + "_" + str(axis_1)
+                + "." + saving_format)
+            file_name = file_name.replace(
+                ".dat", signature)
+            
+            # Save
+            plt.savefig(file_name, bbox_inches='tight')    
+           
+        if show_plot:   
+            plt.show()
+        else:
+            plt.close(fig)
     

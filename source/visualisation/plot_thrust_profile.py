@@ -15,6 +15,8 @@ from scipy.stats import chi2, multivariate_normal
 
 from classes import Dataset
 
+plt.rcParams.update({'font.size': 15})
+
 """
     Turns a continuous vector into a stairs shape larger vector.
 
@@ -148,18 +150,18 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     linewidth_thrust_robust = 0.8
     label_thrust_robust  = "Margins"
     if "mars" in dataset.file_name:
-        scale_thrust_robust = 50
+        scale_thrust_robust = 200
     elif "halo" in dataset.file_name:
         scale_thrust_robust = 2000
     elif "nrho" in dataset.file_name:
-        scale_thrust_robust = 200
+        scale_thrust_robust = 1000
     elif "dro_to_dro" in dataset.file_name:
         scale_thrust_robust = 200
     elif "lyapunov" in dataset.file_name:
-        scale_thrust_robust = 2000
+        scale_thrust_robust = 3000
 
     # Sample norm
-    sample_color = "#7f7f7f"
+    sample_color = "#9a7bb5"
     sample_alpha = 0.3
     sample_linewidth = 0.5
     max_sample_size = 100
@@ -175,7 +177,7 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = True
+    show_plot = False
     
     # Retreive data
     nb_datadets = len(dataset.list_dataset_names)

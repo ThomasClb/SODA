@@ -16,6 +16,8 @@ from scipy.stats import chi2, multivariate_normal
 
 from classes import Dataset
 
+plt.rcParams.update({'font.size': 15})
+
 # Plots the ellipsoïd volume for a given trajectory.
 def plot_hypervolume(dataset):
     # Settings

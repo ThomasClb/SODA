@@ -16,6 +16,28 @@ from scipy.stats import chi2, multivariate_normal
 from misc import get_Lagrange_point
 from classes import Dataset
 
+plt.rcParams.update({'font.size': 15})
+
+# Settings
+dpi = 200
+    
+# Departure arrival
+list_colors = ["#4a90e2", "#4caf50", "#9a7bb5"]
+list_markers = ["o", "s", "^"]
+
+# Sample
+max_sample_size = 200
+sample_alpha = 0.3
+sample_linewidth = 0.1
+
+
+# Output
+show_grid = True
+save_figure = True
+saving_format = "pdf"
+show_plot = False
+
+
 """
     Plots the excpected control errors.
 

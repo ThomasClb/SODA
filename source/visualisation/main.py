@@ -18,7 +18,6 @@ from plot_nli import plot_nli
 from plot_double_integrator import plot_double_integrator_u, plot_double_integrator_x
 from plot_hypervolume import plot_hypervolume
 import matplotlib.pyplot as plt
-plt.rcParams.update({'font.size': 15})
 
 """
     Returns a dataset from a filename.
@@ -86,8 +85,10 @@ if __name__ == "__main__":
     
     # Load datasets.
     dataset_robust = get_dataset(file_name_robust) # Robust trajectory.
+    dataset_robust.file_name = file_name_robust
     if show_sample == 1:
         dataset_sample = get_dataset(file_name_sample)
+        dataset_sample.file_name = file_name_sample
     else:
         dataset_sample = Dataset()
     

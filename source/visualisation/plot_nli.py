@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 from classes import Dataset
     
+plt.rcParams.update({'font.size': 15})
 
 """
     Plots the NLI for a given transfer dataset.
