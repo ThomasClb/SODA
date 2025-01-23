@@ -216,7 +216,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	// Monte-Carlo validation
 	bool monte_carlo_validaiton = true;
 	if (monte_carlo_validaiton) {
-		size_t size_sample=100000;
+		size_t size_sample=1000;
 		vector<vector<matrixdb>> sample = test_trajectory(
 			list_x, list_u, x_goal, size_sample,
 			solver,	atoi(argv[1]), robust_solving, solver_parameters,

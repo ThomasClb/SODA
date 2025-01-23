@@ -168,29 +168,11 @@ def plot_state_errors(dataset,ax, scale, list_colors):
 
 """
 def plot_double_integrator_u(dataset, dataset_sample=Dataset()):
-    
-    # Settings
-    dpi = 200
-        
-    # Departure arrival
-    list_colors = ["blue", "green", "purple"]
-    list_markers = ["o", "s", "^"]
-
-    # Sample
-    max_sample_size = 200
-    sample_alpha = 0.3
-    sample_linewidth = 0.1
 
     # Legend
     show_legend = True
     legend_loc_control = "upper left"
     legend_loc_state = "lower left"
-    
-    # Output
-    show_grid = True
-    save_figure = True
-    saving_format = "pdf"
-    show_plot = False
 
     # Get data
     nb_dataets = len(dataset.list_dataset_names)
@@ -301,29 +283,11 @@ def plot_double_integrator_u(dataset, dataset_sample=Dataset()):
 
 """
 def plot_double_integrator_x(dataset, dataset_sample=Dataset()):
-    
-    # Settings
-    dpi = 200
-
-    # Sample
-    max_sample_size = 200
-    sample_alpha = 0.3
-    sample_linewidth = 0.1
-        
-    # Departure arrival
-    list_colors = ["blue", "green", "purple"]
-    list_markers = ["o", "s", "^"]
 
     # Legend
     show_legend = True
     legend_loc_control = "upper left"
     legend_loc_state = "lower left"
-    
-    # Output
-    show_grid = True
-    save_figure = True
-    saving_format = "pdf"
-    show_plot = False
 
     # Get data
     nb_dataets = len(dataset.list_dataset_names)

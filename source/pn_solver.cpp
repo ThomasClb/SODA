@@ -27,7 +27,7 @@ PNSolver::PNSolver() : AULsolver_(),
 
 // Constructors
 PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
-	list_x_(AULsolver.list_x()), list_u_(AULsolver.list_u()),
+	list_x_(AULsolver.trajectory_split().list_x()), list_u_(AULsolver.trajectory_split().list_u()),
 	cost_(AULsolver.cost()), violation_(AULsolver.violation()),
 	d_th_order_failure_risk_(AULsolver_.d_th_order_failure_risk()),
 	list_der_cost_(vector<vector<matrixdb>>(AULsolver.list_ineq().size() + 1)),

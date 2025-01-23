@@ -71,6 +71,34 @@ pair<vectorDA, vectordb> scale(
     return pair<vectorDA, vectordb>(y_scaled, lambda);
 }
 
+// Return the GMM decomposition of a given multivariate Gaussian
+// Distribution along a specified direction.
+// From [DeMars et al. 2013]
+// DOI: https://doi.org/10.2514/1.58987
+vector<tuple<double, vectordb, matrixdb>> gmm(
+    vectordb const& y_mean,
+    matrixdb const& Sigma,
+    size_t const& direction) {
+
+    // Compute eigenvalues
+    pair<vectordb, matrixdb> eig(jacobi_eigenvalue_(Sigma));
+    vectordb eigenvalues(eig.first);
+    matrixdb eigenvectors(eig.second);
+
+    // Compute Sigma
+    eigenvalues[direction] *= SIGMA_GMM*SIGMA_GMM;
+    matrixdb Sigma_tilde(eigenvectors*make_diag_matrix_(eigenvalues)*eigenvectors.transpose());
+
+    // Compute nominal_state_tilde
+    vector<tuple<double, vectordb, matrixdb>> output(3);
+    vectordb d_nominal_state_tilde = (sqrt(eigenvalues[direction])*MU_GMM)*vectordb(eigenvectors.getcol(direction));
+    output[0] = {ALPHA_1_GMM, y_mean - d_nominal_state_tilde, Sigma_tilde};
+    output[1] = tuple<double,vectordb,matrixdb>{ALPHA_0_GMM, y_mean, Sigma_tilde};
+    output[2] = tuple<double,vectordb,matrixdb>{ALPHA_1_GMM, y_mean + d_nominal_state_tilde, Sigma_tilde};
+
+    return output;
+}
+
 // Computes the NonLinearity Index (NLI) of a vector given a scaling.
 // From [Losacco et al. 2024]
 // DOI: https://doi.org/10.2514/1.G007271
@@ -98,6 +126,36 @@ double nl_index(vectorDA const& y, vectordb const& lambda) {
         }  
     }
     return frobenius_norm_(B)/frobenius_norm_(J_cons);
+}
+
+// Computes the NonLinearity Index (NLI) of a vector given a scaling along each direction.
+// From [Losacco et al. 2024]
+// DOI: https://doi.org/10.2514/1.G007271
+vectordb nl_index_dir(vectorDA const& y, vectordb const& lambda) {
+    size_t d(DA::getMaxVariables());
+    matrixDA J(d, y.size()); // DA expansion of the Jacobian
+    for (size_t i=0; i<y.size(); i++) {
+        J.setcol(i, y[i].gradient());
+        for (size_t j=0; j<d; j++) { // Scaling
+            if (lambda[j] > 0)
+                J.at(j,i) /= sqrt(lambda[j]);
+        }
+    }
+    matrixdb J_cons(J.cons()); // Linear part (STM)
+    double norm_J(frobenius_norm_(J_cons));
+
+    // Loop on directions
+    matrixdb B(J_cons.nrows(), J_cons.ncols(), 0.0);
+    vectordb output(d); vectordb b;
+    for (size_t dir=0; dir<d; dir++) {
+        for (size_t i=0; i<J_cons.nrows(); i++) {
+            for (size_t j=0; j<J_cons.ncols(); j++) {
+                B.at(i, j) = J.at(i, j).linear()[dir];
+            }  
+        }
+        output[dir] = frobenius_norm_(B)/norm_J;
+    }
+    return output;
 }
 
 // Computes the NonLinearity Index (NLI) of a vector given a robust trajectory step.

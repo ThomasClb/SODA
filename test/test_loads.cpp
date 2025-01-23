@@ -85,6 +85,46 @@ TEST(TestLoads, Scale) {
 		EXPECT_EQ(scaling.second[i + size_state], quantile*Sigma_u.at(i, i));
 	}
 }
+TEST(TestLoads, GMM) {
+	// Init
+
+	// Init DACE
+	size_t nb_variables = 6;
+	unsigned int n = 4;
+	DA::init(2, nb_variables);
+
+	// Init
+	matrixdb Sigma(nb_variables, nb_variables, 0.0);
+	for (size_t i=0; i<nb_variables; i++) {
+		Sigma.at(i, i) += 1.0 + i;
+	}
+	vectorDA y(nb_variables, 1.0);
+	for (int i=0; i<nb_variables; i++) {
+		y[i] += exp(1 + DA(i + 1)*(1 + DA(i + 1)));
+	}
+	size_t direction = 2;
+	vector<tuple<double, vectordb, matrixdb>> list_distribution = gmm(
+		y.cons(), Sigma, direction);
+
+	// Tests
+	EXPECT_NEAR(get<0>(list_distribution[0]) + get<0>(list_distribution[1]) + get<0>(list_distribution[2]), 1.0, EPS);
+	EXPECT_EQ(y.cons()[direction], get<1>(list_distribution[1])[direction]);
+	EXPECT_TRUE(get<1>(list_distribution[0])[direction] < get<1>(list_distribution[1])[direction]);
+	EXPECT_TRUE(get<1>(list_distribution[1])[direction] < get<1>(list_distribution[2])[direction]);
+	for (size_t i=0; i<nb_variables; i++) {
+		if (i != direction) {
+			EXPECT_EQ(get<1>(list_distribution[0])[i], y.cons()[i]);
+			EXPECT_EQ(get<1>(list_distribution[0])[i], get<1>(list_distribution[1])[i]);
+			EXPECT_EQ(get<1>(list_distribution[1])[i], get<1>(list_distribution[2])[i]);
+		}
+	}
+	for (size_t i=0; i<nb_variables; i++) {
+		for (size_t j=0; j<nb_variables; j++) {
+			EXPECT_EQ(get<2>(list_distribution[0]).at(i,j), get<2>(list_distribution[1]).at(i,j));
+			EXPECT_EQ(get<2>(list_distribution[1]).at(i,j), get<2>(list_distribution[2]).at(i,j));
+		}
+	}
+}
 TEST(TestLoads, NLIndex) {
 	// Init DACE
 	size_t nb_variables = 1;
@@ -98,6 +138,27 @@ TEST(TestLoads, NLIndex) {
 	EXPECT_EQ(nl_index(y, vectordb(nb_variables, 1.0)), 1);
 	y[0] = 1 + DA(1) + 0*sqr(DA(1));
 	EXPECT_EQ(nl_index(y, vectordb(nb_variables, 1.0)), 0);
+}
+TEST(TestLoads, NLIndexDir) {
+	// Init DACE
+	size_t d = 2;
+	DA::init(2, d);
+
+	// Tests
+	size_t n = 3;
+	vectorDA y(n);
+	y[0] = 1 + DA(1) + sqr(DA(2));
+	y[1] = 1 + DA(2) + 0.5*sqr(DA(1));
+	y[2] = 1 + cos(DA(2)*DA(1)) + 0.5*sqr(DA(1));
+	vectordb lambda(d, 1.0);
+	double nli = nl_index(y, vectordb(d, 1.0));
+	vectordb nli_dir = nl_index_dir(y, vectordb(d, 1.0));
+
+	// Test
+	EXPECT_EQ(nli_dir.size(), d);
+	for (size_t i=0; i<d; i++) {
+		EXPECT_TRUE(nli_dir[i] <= nli);
+	}
 }
 TEST(TestLoads, NLIndexScaled) {
 	// Init

@@ -22,14 +22,14 @@
 #include <dace/dace_s.h>
 
 #include "ddp_solver.h"
+#include "trajectory_split.h"
 
 class AULSolver {
 
 // Attributes
 protected:
 	DDPSolver DDPsolver_; // Solver parameters
-	std::vector<statedb> list_x_; // List of states
-	std::vector<controldb> list_u_; // List of controls
+	TrajectorySplit trajectory_split_; // Compiles a list of states, controls and a splitting history
 	double cost_; // Output cost [-]
 	double violation_; // Constraints violation [-]
 	double d_th_order_failure_risk_; // Estimation of the failure risk [-]
@@ -67,8 +67,7 @@ public:
 	// Getters
 	// No unit test.
 	const DDPSolver DDPsolver() const;
-	const std::vector<statedb> list_x() const;
-	const std::vector<controldb> list_u() const;
+	const TrajectorySplit trajectory_split() const;
 	const double cost() const;
 	const double violation() const;
 	const double d_th_order_failure_risk() const;
@@ -106,8 +105,7 @@ public:
 	// See: https://github.com/RoboticExplorationLab/Altro.jl
 	// No unit test.
 	void solve(
-		statedb const& x0,
-		std::vector<controldb> const& list_u_init,
+		std::deque<TrajectorySplit>* const& p_list_trajectory_split,
 		statedb const& x_goal);
 };
 

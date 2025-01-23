@@ -89,39 +89,45 @@ void SODA::solve(
 	AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - transcription_beta)));
 	AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - transcription_beta)));
 
+	// Init robust_trajectory
+	TrajectorySplit trajectory_split_init(vector<statedb>(1, x0), list_u_init, SplittingHistory());
+
+	// TO DO init Robust Trajectory
+	deque<TrajectorySplit> list_trajectory_split{trajectory_split_init};
+
 	// Run DDP
 	auto start = high_resolution_clock::now();
 	vectordb homotopy_sequence = solver_parameters_.homotopy_coefficient_sequence();
 	vectordb huber_loss_coefficient_sequence = solver_parameters_.huber_loss_coefficient_sequence();
 	AUL_n_iter_ = 0; DDP_n_iter_ = 0;
-	for (size_t i = 0; i < homotopy_sequence.size(); i++) {
-		AULsolver_.set_homotopy_coefficient(homotopy_sequence[i]);
-		AULsolver_.set_huber_loss_coefficient(huber_loss_coefficient_sequence[i]);
-
-		// First iteration is always deterministic
-		if (i == 0)
-			AULsolver_.solve(x0_det, list_u_init, x_goal);
-		else if (i != 0 && robust_solving) { // Fully robust case
-			AULsolver_.set_navigation_error_covariance(navigation_error_covariance);
-			AULsolver_.solve(x0, AULsolver_.list_u(), x_goal);
+	bool loop = true;
+	size_t counter = 0;
+	while (loop) {
+		if (fuel_optimal) {
+			AULsolver_.set_homotopy_coefficient(homotopy_sequence[counter]);
+			AULsolver_.set_huber_loss_coefficient(huber_loss_coefficient_sequence[counter]);
 		}
-		else // Fully deterministic case
-			AULsolver_.solve(x0_det, AULsolver_.list_u(), x_goal);
+		if (counter == 0) {
+			TrajectorySplit trajectory_split_init(vector<statedb>(1, x0_det), list_u_init, SplittingHistory());
+			list_trajectory_split = deque<TrajectorySplit>{trajectory_split_init};
+		}
+		else if (counter == 1 && robust_solving) { // Fully robust case
+			AULsolver_.set_navigation_error_covariance(navigation_error_covariance);
+			TrajectorySplit trajectory_split_init(
+				vector<statedb>(1, x0),
+				list_trajectory_split.front().list_u(),
+				SplittingHistory());
+			list_trajectory_split = deque<TrajectorySplit>{trajectory_split_init};
+		} // Else list_trajectory_split is already configured
+		AULsolver_.solve(&list_trajectory_split, x_goal);
+		counter ++;
 		DDP_n_iter_ += AULsolver_.DDP_n_iter();
 		AUL_n_iter_ += AULsolver_.AUL_n_iter();
-
-		// For robust NRJ optimal solving
-		if (!fuel_optimal && robust_solving) {
-			AULsolver_.solve(x0, AULsolver_.list_u(), x_goal);
-			DDP_n_iter_ += AULsolver_.DDP_n_iter();
-			AUL_n_iter_ += AULsolver_.AUL_n_iter();
-			break;
-		} else if (!fuel_optimal)
-			break;
+		loop = (counter < homotopy_sequence.size() && fuel_optimal) || (counter < 2 && robust_solving);
 	}
 	vector<vectorDA> list_dynamic_eval = AULsolver_.DDPsolver().list_dynamic_eval();
-	list_x_ = AULsolver_.list_x();
-	list_u_ = AULsolver_.list_u();
+	list_x_ = list_trajectory_split.front().list_x(); // TO DO change
+	list_u_ = list_trajectory_split.front().list_u();
 
 	// PN
 	auto start_inter = high_resolution_clock::now();

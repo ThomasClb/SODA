@@ -26,6 +26,8 @@
 #include "state_t.h"
 #include "control_t.h"
 #include "stats.h"
+#include "splitting_history.h"
+#include "trajectory_split.h"
 
 // Shortcut function to retrieve eigenvalues knowing robust trajectory.
 std::pair<DACE::vectordb, DACE::matrixdb> get_eigenvalues(
@@ -36,10 +38,24 @@ std::pair<DACE::vectorDA, DACE::vectordb> scale(
 	DACE::vectorDA const& y, DACE::matrixdb const& Sigma_x,
 	DACE::matrixdb const& feedback_gain, double const& transcription_beta);
 
+// Return the GMM decomposition of a given multivariate Gaussian
+// Distribution along a specified direction.
+// From [DeMars et al. 2013]
+// DOI: https://doi.org/10.2514/1.58987
+std::vector<std::tuple<double, DACE::vectordb, DACE::matrixdb>> gmm(
+    DACE::vectordb const& y_mean,
+    DACE::matrixdb const& Sigma,
+    std::size_t const& direction);
+
 // Computes the NonLinearity Index (NLI) of a vector given a scaling.
 // From [Losacco et al. 2024]
 // DOI: https://doi.org/10.2514/1.G007271
 double nl_index(DACE::vectorDA const& y, DACE::vectordb const& lambda);
+
+// Computes the NonLinearity Index (NLI) of a vector given a scaling along each direction.
+// From [Losacco et al. 2024]
+// DOI: https://doi.org/10.2514/1.G007271
+DACE::vectordb nl_index_dir(DACE::vectorDA const& y, DACE::vectordb const& lambda);
 
 // Computes the NonLinearity Index (NLI) of a vector given a robust trajectory step.
 // From [Losacco et al. 2024]

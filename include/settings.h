@@ -67,4 +67,11 @@
 // Transcription
 #define TRANSCRIPTION_METHOD 1 // 0 is spectral radius, 1 is first order.
 
+// GMM from K=3 lambda=1e-3 See [DeMars et al. 2013]
+// DOI: https://doi.org/10.2514/1.58987
+#define SIGMA_GMM 0.6715664864669252 // Scaling [-]
+#define ALPHA_0_GMM 0.5495506294920584 // Central weight [-]
+#define ALPHA_1_GMM 0.225224685253970 // Lateral weight [-]
+#define MU_GMM 1.057515048576096 // Offset [-]
+
 #endif

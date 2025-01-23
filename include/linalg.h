@@ -18,6 +18,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <tuple>
 
 #include <dace/dace_s.h>
 
