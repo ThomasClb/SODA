@@ -54,16 +54,14 @@ TEST(TestLoads, Scale) {
 
 	// Init
 	double transcription_beta = 5e-2;
-	double quantile = inv_chi_2_cdf(size_state, 1 - transcription_beta);
+	double quantile = inv_chi_2_cdf(size_state, 1.0 - transcription_beta);
 	matrixdb Sigma_x(size_state, size_state, 0.0);
-	matrixdb feedback_gain(size_control, size_state, 0.0);
-	for (size_t i=0; i<size_state; i++) {
-		Sigma_x.at(i, i) += 1.0 + i;
+	matrixdb L_x(size_state, size_state, 0.0);
+	matrixdb feedback_gain(size_control, size_state, 1.0);
+	for (int i=0; i<size_state; i++) {
+		Sigma_x.at(i, i) = 1.0 + i;
+		L_x.at(i, i) = sqrt(1.0 + i);
 	}
-	for (size_t i=0; i<size_control; i++) {
-		feedback_gain.at(i, i) = 1.0;
-	}
-	matrixdb Sigma_u(feedback_gain*Sigma_x*feedback_gain.transpose());	
 	vectorDA y(nb_variables, 1.0);
 	for (int i=0; i<nb_variables; i++) {
 		y[i] += DA(i + 1);
@@ -73,19 +71,19 @@ TEST(TestLoads, Scale) {
 
 	// Tests
 	for (size_t i=0; i<size_state; i++) {
-		EXPECT_EQ(y_scaled_eval[i], 1.0 + sqrt(quantile*Sigma_x.at(i, i)));
+		EXPECT_NEAR(y_scaled_eval[i], 1.0 + sqrt(quantile)*L_x.at(i, i), EPS);
 	}
 	for (size_t i=0; i<size_control; i++) {
-		EXPECT_EQ(y_scaled_eval[i + size_state], 1.0 + sqrt(quantile*Sigma_u.at(i, i)));
+		EXPECT_EQ(y_scaled_eval[i + size_state], 1.0 + sqrt(quantile)*(feedback_gain*get_diag_vector_(L_x))[i]);
 	}
 	for (size_t i=0; i<size_state; i++) {
 		EXPECT_EQ(scaling.second[i], quantile*Sigma_x.at(i, i));
 	}
-	for (size_t i=0; i<size_control; i++) {
-		EXPECT_EQ(scaling.second[i + size_state], quantile*Sigma_u.at(i, i));
-	}
+
+
+
 }
-TEST(TestLoads, GMM) {
+TEST(TestLoads, SplitGMM) {
 	// Init
 
 	// Init DACE
@@ -103,7 +101,7 @@ TEST(TestLoads, GMM) {
 		y[i] += exp(1 + DA(i + 1)*(1 + DA(i + 1)));
 	}
 	size_t direction = 2;
-	vector<tuple<double, vectordb, matrixdb>> list_distribution = gmm(
+	vector<tuple<double, vectordb, matrixdb>> list_distribution = split_gmm(
 		y.cons(), Sigma, direction);
 
 	// Tests
@@ -124,6 +122,33 @@ TEST(TestLoads, GMM) {
 			EXPECT_EQ(get<2>(list_distribution[1]).at(i,j), get<2>(list_distribution[2]).at(i,j));
 		}
 	}
+}
+TEST(TestLoads, MergeGMM) {
+	// Init
+
+	// Init DACE
+	size_t nb_variables = 6;
+	unsigned int n = 4;
+	DA::init(2, nb_variables);
+
+	// Init
+	matrixdb Sigma(nb_variables, nb_variables, 0.0);
+	for (size_t i=0; i<nb_variables; i++) {
+		Sigma.at(i, i) += 1.0 + i;
+	}
+	vectorDA y(nb_variables, 1.0);
+	for (int i=0; i<nb_variables; i++) {
+		y[i] += exp(1 + DA(i + 1)*(1 + DA(i + 1)));
+	}
+	size_t direction = 2;
+	pair<vectordb, matrixdb> distribution = merge_gmm(
+		y.cons(), Sigma, direction);
+
+	// Tests
+	for (size_t i=0; i<nb_variables; i++) {
+		EXPECT_EQ(distribution.first[i], y.cons()[i]);
+	}
+	EXPECT_TRUE(frobenius_norm_(distribution.second) > frobenius_norm_(Sigma));
 }
 TEST(TestLoads, NLIndex) {
 	// Init DACE
@@ -242,5 +267,4 @@ TEST(TestLoads, NLIndexTrajectory) {
 	for (size_t i=0; i<list_nli.size(); i++) {
 		EXPECT_EQ(list_nli[0], 0.0);
 	}
-	
 }

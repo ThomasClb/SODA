@@ -15,6 +15,8 @@
 
 #include <vector>
 #include <utility>
+#include <fstream>
+#include <iostream>
 
 #include "settings.h"
 
@@ -24,10 +26,10 @@ public:
     SplittingHistory();
 
     // Copy constructor
-    SplittingHistory(SplittingHistory const& splitting_history);
+    SplittingHistory(SplittingHistory const& history);
 
     // Copy assignment operator
-    SplittingHistory& operator=(SplittingHistory const& other);
+    SplittingHistory& operator=(SplittingHistory const& history);
 
     // Destructor
     ~SplittingHistory();
@@ -36,7 +38,11 @@ public:
     const double alpha() const;
 
     // Checks if two splitting histories can be merged.
-    const bool can_merge(SplittingHistory const& other) const;
+    const bool can_merge(SplittingHistory const& history) const;
+
+    // IO operator
+    friend std::ostream& operator<<(std::ostream& os, const SplittingHistory& history);
+    friend std::istream& operator>>(std::istream& is, SplittingHistory& history);
 };
 
 #endif

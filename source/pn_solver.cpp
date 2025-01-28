@@ -21,7 +21,7 @@ PNSolver::PNSolver() : AULsolver_(),
 	list_x_(vector<statedb>(0)), list_u_(vector<controldb>(0)),
 	cost_(0), d_th_order_failure_risk_(1.0),
 	list_der_cost_(vector<vector<matrixdb>>(0)),
-	list_dynamic_eval_(0), list_constraints_eval_(0),
+	list_dynamics_eval_(0), list_constraints_eval_(0),
 	list_feedback_gain_(0), list_Sigma_(0),
 	X_U_(0), INEQ_(0), der_INEQ_(0), correction_(0), violation_(1e15) {}
 
@@ -31,7 +31,7 @@ PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
 	cost_(AULsolver.cost()), violation_(AULsolver.violation()),
 	d_th_order_failure_risk_(AULsolver_.d_th_order_failure_risk()),
 	list_der_cost_(vector<vector<matrixdb>>(AULsolver.list_ineq().size() + 1)),
-	list_dynamic_eval_(), list_constraints_eval_(),
+	list_dynamics_eval_(), list_constraints_eval_(),
 	list_feedback_gain_(), list_Sigma_(),
 	X_U_(), INEQ_(), der_INEQ_(), correction_() {
 	// Unpack
@@ -45,7 +45,7 @@ PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
 	unsigned int Nineq = solver_parameters_.Nineq();
 	unsigned int Ntineq = solver_parameters_.Ntineq();
 	X_U_ = vectordb(N*(Nx + Nu)); // TO DO update
-	list_dynamic_eval_ = vector<vectorDA>(N);
+	list_dynamics_eval_ = vector<vectorDA>(N);
 	list_constraints_eval_ = vector<vectorDA>(N + 1);
 	correction_ = vectordb(N*(Nx + Nu), 0);
 	INEQ_ = vectordb(N*(Nx + Nineq) + Ntineq);
@@ -88,7 +88,7 @@ PNSolver::PNSolver(
 	spacecraft_parameters_(solver.spacecraft_parameters_),
 	list_x_(solver.list_x_), list_u_(solver.list_u_),
 	cost_(solver.cost_), d_th_order_failure_risk_(solver.d_th_order_failure_risk_),
-	list_dynamic_eval_(solver.list_dynamic_eval_),
+	list_dynamics_eval_(solver.list_dynamics_eval_),
 	list_constraints_eval_(solver.list_constraints_eval_),
 	list_feedback_gain_(solver.list_feedback_gain_), list_Sigma_(solver.list_Sigma_),
 	list_der_cost_(solver.list_der_cost_),
@@ -106,7 +106,7 @@ const vector<controldb> PNSolver::list_u() const { return list_u_; }
 const double PNSolver::cost() const { return cost_; }
 const double PNSolver::violation() const { return violation_; }
 const double PNSolver::d_th_order_failure_risk() const { return d_th_order_failure_risk_; }
-const vector<vectorDA> PNSolver::list_dynamic_eval() const { return list_dynamic_eval_; }
+const vector<vectorDA> PNSolver::list_dynamics_eval() const { return list_dynamics_eval_; }
 const size_t PNSolver::n_iter() const { return n_iter_; }
 
 // Setters
@@ -124,7 +124,7 @@ void PNSolver::set_list_x_u() {
 			(i - 1) * (Nx + Nu) + Nu, (i - 1) * (Nx + Nu) + Nu + Nx - 1);
 		list_x_[i].set_Sigma(list_Sigma_[i]);
 
-		list_x_[i].set_der_dynamics(list_dynamic_eval_[i].linear());
+		list_x_[i].set_der_dynamics(list_dynamics_eval_[i].linear());
 		list_u_[i] = X_U_.extract(
 			i * (Nx + Nu), i * (Nx + Nu) + Nu - 1);
 		list_u_[i].set_feedback_gain(list_feedback_gain_[i]);
@@ -132,7 +132,7 @@ void PNSolver::set_list_x_u() {
 	list_x_[N] = X_U_.extract(
 		(N - 1) * (Nx + Nu) + Nu, (N - 1) * (Nx + Nu) + Nu + Nx - 1);
 	list_x_[N].set_Sigma(list_Sigma_[N-1]);
-	list_x_[N].set_der_dynamics(list_dynamic_eval_[N-1].linear());
+	list_x_[N].set_der_dynamics(list_dynamics_eval_[N-1].linear());
 }
 
 // Solves the optimisation problem with a projected Newton method
@@ -188,7 +188,7 @@ void PNSolver::solve(statedb const& x_goal) {
 			if (i!=0)
 				set_list_x_u(); // Print results in list_x, list_u
 			vectordb list_nli = nl_index(
-		    	list_dynamic_eval_, list_x_,
+		    	list_dynamics_eval_, list_x_,
 		    	list_u_, solver_parameters_.transcription_beta());
 			double nli = 0;
 			for (size_t i=0; i<N; i++) {
@@ -217,7 +217,7 @@ void PNSolver::solve(statedb const& x_goal) {
 				if (i!=0)
 					set_list_x_u(); // Print results in list_x, list_u
 				vectordb list_nli = nl_index(
-			    	list_dynamic_eval_, list_x_,
+			    	list_dynamics_eval_, list_x_,
 			    	list_u_, solver_parameters_.transcription_beta());
 				double nli = 0;
 				for (size_t i=0; i<N; i++) {
@@ -288,7 +288,7 @@ void PNSolver::solve(statedb const& x_goal) {
 	// Get NLI
 	set_list_x_u(); // Print results in list_x, list_u
 	vectordb list_nli = nl_index(
-    	list_dynamic_eval_, list_x_,
+    	list_dynamics_eval_, list_x_,
     	list_u_, solver_parameters_.transcription_beta());
 	double nli = 0;
 	for (size_t i=0; i<N; i++) {
@@ -585,7 +585,7 @@ void PNSolver::update_constraints_(
 				spacecraft_parameters_, constants, solver_parameters_);
 		} else {
 			// Get conv radius
-			vectorDA dynamics_eval = list_dynamic_eval_[i];
+			vectorDA dynamics_eval = list_dynamics_eval_[i];
 			double radius = convRadius(dynamics_eval, tol);
 			double norm = dx_u.vnorm();
 
@@ -601,7 +601,7 @@ void PNSolver::update_constraints_(
 					spacecraft_parameters_, constants, solver_parameters_);
 			}
 		}
-		list_dynamic_eval_[i] = x_kp1_eval;
+		list_dynamics_eval_[i] = x_kp1_eval;
 
 		// Get Sigma
 		matrixdb der_x = x_kp1_eval.linear();
@@ -737,7 +737,7 @@ vectordb PNSolver::update_constraints_double_(
 		// Continuity constraints
 
 		// Get conv radius
-		vectorDA dynamics_eval = list_dynamic_eval_[i];
+		vectorDA dynamics_eval = list_dynamics_eval_[i];
 		double radius = convRadius(dynamics_eval, tol);
 		double norm = dx_u.vnorm();
 

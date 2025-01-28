@@ -203,7 +203,7 @@ void cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunovL2(int argc, char** argv) {
 		string system_name = "CR3BP EARTH-MOON CARTESIAN LT";
 		print_robust_trajectory_dataset(
 			file_name, system_name,
-			list_x, list_u, solver.list_nli(),
+			solver.list_trajectory_split(),
 			x_departure, x_arrival, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
 	}

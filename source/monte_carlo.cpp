@@ -369,7 +369,6 @@ vector<vector<matrixdb>>  test_trajectory(
 			cout << nominal_results[0]<< ", ";
 			cout << "-, ";
 		}
-		cout << solver.nli() << ", ";
 
 		// Convergence metrics
 		cout << solver.AUL_runtime() << ", ";

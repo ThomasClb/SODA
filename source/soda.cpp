@@ -17,23 +17,22 @@ using namespace std::chrono;
 // Constructors
 SODA::SODA() : 
 		solver_parameters_(), dynamics_(), spacecraft_parameters_(),
-		list_x_(), list_u_(),
-		list_nli_(),
+		list_x_(), list_u_(), list_trajectory_split_(),
 		AULsolver_(), PNsolver_() {}
 SODA::SODA(
 	SolverParameters const& solver_parameters,
 	SpacecraftParameters const& spacecraft_parameters,
 	Dynamics const& dynamics) :
 		solver_parameters_(solver_parameters), dynamics_(dynamics), spacecraft_parameters_(spacecraft_parameters),
-		list_x_(), list_u_(), list_nli_(),
+		list_x_(), list_u_(), list_trajectory_split_(),
 		PNsolver_(), AULsolver_(solver_parameters, spacecraft_parameters, dynamics) {}
 
 // Copy constructor
 SODA::SODA(
 	SODA const& solver) : 
 		solver_parameters_(solver.solver_parameters_), dynamics_(solver.dynamics_),
-		spacecraft_parameters_(solver.spacecraft_parameters_),
-		list_x_(solver.list_x_), list_u_(solver.list_u_), list_nli_(solver.list_nli_),
+		spacecraft_parameters_(solver.spacecraft_parameters_),  list_trajectory_split_(solver.list_trajectory_split_),
+		list_x_(solver.list_x_), list_u_(solver.list_u_),
 		AULsolver_(solver.AULsolver_), PNsolver_(solver.PNsolver_) {}
 
 // Destructors
@@ -44,8 +43,7 @@ const AULSolver SODA::AULsolver() const { return AULsolver_; }
 const PNSolver SODA::PNsolver() const { return PNsolver_; }
 const vector<statedb> SODA::list_x() const { return list_x_; }
 const vector<controldb> SODA::list_u() const { return list_u_; }
-const vectordb SODA::list_nli() const { return list_nli_; }
-const double SODA::nli() const { return nli_; }
+const deque<TrajectorySplit> SODA::list_trajectory_split() const { return list_trajectory_split_; }
 const double SODA::cost() const { return PNsolver_.cost(); }
 const double SODA::violation() const { return PNsolver_.violation(); }
 const double SODA::d_th_order_failure_risk() const { return PNsolver_.d_th_order_failure_risk(); }
@@ -92,8 +90,8 @@ void SODA::solve(
 	// Init robust_trajectory
 	TrajectorySplit trajectory_split_init(vector<statedb>(1, x0), list_u_init, SplittingHistory());
 
-	// TO DO init Robust Trajectory
-	deque<TrajectorySplit> list_trajectory_split{trajectory_split_init};
+	// Robust Trajectory
+	list_trajectory_split_ = deque<TrajectorySplit>{trajectory_split_init};
 
 	// Run DDP
 	auto start = high_resolution_clock::now();
@@ -103,33 +101,38 @@ void SODA::solve(
 	bool loop = true;
 	size_t counter = 0;
 	while (loop) {
+		// Prepare list_trajectory_split_
 		if (fuel_optimal) {
 			AULsolver_.set_homotopy_coefficient(homotopy_sequence[counter]);
 			AULsolver_.set_huber_loss_coefficient(huber_loss_coefficient_sequence[counter]);
 		}
 		if (counter == 0) {
 			TrajectorySplit trajectory_split_init(vector<statedb>(1, x0_det), list_u_init, SplittingHistory());
-			list_trajectory_split = deque<TrajectorySplit>{trajectory_split_init};
+			list_trajectory_split_ = deque<TrajectorySplit>{trajectory_split_init};
 		}
 		else if (counter == 1 && robust_solving) { // Fully robust case
 			AULsolver_.set_navigation_error_covariance(navigation_error_covariance);
 			TrajectorySplit trajectory_split_init(
 				vector<statedb>(1, x0),
-				list_trajectory_split.front().list_u(),
+				list_trajectory_split_.front().list_u(),
 				SplittingHistory());
-			list_trajectory_split = deque<TrajectorySplit>{trajectory_split_init};
-		} // Else list_trajectory_split is already configured
-		AULsolver_.solve(&list_trajectory_split, x_goal);
+			list_trajectory_split_ = deque<TrajectorySplit>{trajectory_split_init};
+		} // Else list_trajectory_split_ is already configured
+
+		// Solve
+		AULsolver_.solve(&list_trajectory_split_, x_goal);
 		counter ++;
 		DDP_n_iter_ += AULsolver_.DDP_n_iter();
 		AUL_n_iter_ += AULsolver_.AUL_n_iter();
 		loop = (counter < homotopy_sequence.size() && fuel_optimal) || (counter < 2 && robust_solving);
 	}
-	vector<vectorDA> list_dynamic_eval = AULsolver_.DDPsolver().list_dynamic_eval();
-	list_x_ = list_trajectory_split.front().list_x(); // TO DO change
-	list_u_ = list_trajectory_split.front().list_u();
 
-	// PN
+	// Retrieve results
+	// TO DO change
+	list_x_ = list_trajectory_split_.front().list_x(); 
+	list_u_ = list_trajectory_split_.front().list_u();
+
+	// PN TO DO
 	auto start_inter = high_resolution_clock::now();
 	PNsolver_ = PNSolver(AULsolver_);
 	PN_n_iter_ = 0;
@@ -140,9 +143,8 @@ void SODA::solve(
 
 		// Solve
 		PNsolver_.solve(x_goal);
-		list_x_ = PNsolver_.list_x();
-		list_u_ = PNsolver_.list_u();
-		list_dynamic_eval = PNsolver_.list_dynamic_eval();
+		list_x_ = PNsolver_.list_x(); // TO DO remove
+		list_u_ = PNsolver_.list_u(); // TO DO remove
 		PN_n_iter_ = PNsolver_.n_iter();
 	}
 	auto stop = high_resolution_clock::now();
@@ -153,29 +155,23 @@ void SODA::solve(
 	AUL_runtime_ = static_cast<double>(duration_AUL.count()) / 1e6;
 	runtime_ = static_cast<double>(duration.count()) / 1e6;
 	
-
 	// If det, recompute Sigmas
 	if (!robust_solving) {
-		list_x_[0] = x0;
+		vector<statedb> list_x(list_trajectory_split_.front().list_x());
+		list_x[0] = x0;
 		for (size_t i=1; i<N+1; i++) {
-			matrixdb der_x_i = list_x_[i].der_dynamics();
+			matrixdb der_x_i = list_x[i].der_dynamics();
 			matrixdb mat_detla_i = der_x_i.submat(0, 0, Nx - 1, Nx - 1)
-				+ der_x_i.submat(0, Nx, Nx - 1, Nx + Nu -1)*list_u_[i-1].feedback_gain();
-			list_x_[i].set_Sigma(
-				mat_detla_i*list_x_[i-1].Sigma()*mat_detla_i.transpose()
+				+ der_x_i.submat(0, Nx, Nx - 1, Nx + Nu -1)*list_trajectory_split_.front().list_u()[i-1].feedback_gain();
+			list_x[i].set_Sigma(
+				mat_detla_i*list_x[i-1].Sigma()*mat_detla_i.transpose()
 				+ solver_parameters_.navigation_error_covariance());
 		}
+		list_trajectory_split_.front().set_list_x(list_x);
 	}
 
-	// Get NLI
-	list_nli_ = nl_index(
-    	list_dynamic_eval, list_x_,
-    	list_u_, solver_parameters_.transcription_beta());
-	nli_ = 0.0;
-	for (size_t i=0; i<N; i++) {
-		if (list_nli_[i]>nli_)
-			nli_ = list_nli_[i];
-	}
+	// TO DO make Robust trajectory
+	// Mahalanobis distance
 
 	// Output
 	if (verbosity <= 2) {
@@ -187,6 +183,5 @@ void SODA::solve(
 		cout << "	FINAL COST [-] : " << PNsolver_.cost() << endl;
 		cout << "	ERROR [-] : " << PNsolver_.violation() << endl;
 		cout << "	Dth-ORDER RISK [%] : " << 100*PNsolver_.d_th_order_failure_risk() << endl;
-		cout << "	Nonlinearity index [-] : " << nli_ << endl;
 	}
 }

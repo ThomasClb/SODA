@@ -43,10 +43,9 @@ protected:
 	SpacecraftParameters spacecraft_parameters_;
 	Dynamics dynamics_;
 	PNSolver PNsolver_; // Projected Newton solver
+	std::deque<TrajectorySplit> list_trajectory_split_;
 	std::vector<statedb> list_x_;
 	std::vector<controldb> list_u_;
-	DACE::vectordb list_nli_;
-	double nli_;
 
 	// Iterations
 	double PN_runtime_; // Runtime of PN
@@ -83,8 +82,7 @@ public:
 	const PNSolver PNsolver() const;
 	const std::vector<statedb> list_x() const;
 	const std::vector<controldb> list_u() const;
-	const DACE::vectordb list_nli() const;
-	const double nli() const;
+	const std::deque<TrajectorySplit> list_trajectory_split() const;
 	const double cost() const;
 	const double violation() const;
 	const double d_th_order_failure_risk() const;

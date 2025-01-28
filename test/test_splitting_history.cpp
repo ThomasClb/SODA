@@ -68,3 +68,23 @@ TEST(TestSplittingHistory, CanMerge) {
     EXPECT_TRUE(sh1.can_merge(sh2)); // Last element's second value is different
     EXPECT_FALSE(sh1.can_merge(sh3)); // Different sizes
 }
+TEST(TestSplittingHistory, StreamOperators) {
+    // Test the << operator
+    SplittingHistory history;
+    history.push_back({1, 100});
+    history.push_back({2, -200});
+
+    std::ostringstream oss;
+    oss << history;
+    std::string expected_output = "1, 100; 2, -200; ";
+    EXPECT_EQ(oss.str(), expected_output);
+
+    // Test the >> operator
+    std::istringstream iss("3, 300; 4, -400; ");
+    SplittingHistory history_input;
+    iss >> history_input;
+
+    EXPECT_EQ(history_input.size(), 2);
+    EXPECT_EQ(history_input[0], std::make_pair(3u, 300));
+    EXPECT_EQ(history_input[1], std::make_pair(4u, -400));
+}

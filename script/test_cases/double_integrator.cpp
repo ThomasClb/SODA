@@ -183,7 +183,7 @@ void double_integrator(int argc, char** argv) {
 		string system_name = "DOUBLE INTEGRATOR";
 		print_robust_trajectory_dataset(
 			file_name, system_name,
-			list_x, list_u, solver.list_nli(),
+			solver.list_trajectory_split(),
 			x_departure, x_arrival, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
 	}

@@ -37,7 +37,7 @@ DDPSolver::DDPSolver(
 	spacecraft_parameters_(solver.spacecraft_parameters()), dynamics_(solver.dynamics()),
 	list_x_(solver.list_x_), list_u_(solver.list_u_), cost_(solver.cost_),
 	list_ineq_(solver.list_ineq_),
-	list_dynamic_eval_(solver.list_dynamic_eval_),
+	list_dynamics_eval_(solver.list_dynamics_eval_),
 	rho_(0.0), d_rho_(0.0), alpha_(1.0) {}
 
 // Destructors
@@ -52,8 +52,8 @@ const Dynamics DDPSolver::dynamics() const { return dynamics_; }
 const vector<statedb> DDPSolver::list_x() const { return list_x_; }
 const vector<controldb> DDPSolver::list_u() const { return list_u_; }
 const vector<vectordb> DDPSolver::list_ineq() const { return list_ineq_; }
-const vector<vectorDA> DDPSolver::list_dynamic_eval() const {
-	return list_dynamic_eval_; }
+const vector<vectorDA> DDPSolver::list_dynamics_eval() const {
+	return list_dynamics_eval_; }
 const vector<vectorDA> DDPSolver::list_deterministic_constraints_eval() const {
 	return list_deterministic_constraints_eval_; }
 const vectordb DDPSolver::tineq() const { return tineq_; }
@@ -407,7 +407,7 @@ void DDPSolver::backward_sweep_() {
 			// Get derivatives
 			vect_sc[0] = list_constraints_eval_[j][Nineq];
 			vector<matrixdb> der_dynamic = deriv_xu(
-				list_dynamic_eval_[j], Nx, Nu, false);
+				list_dynamics_eval_[j], Nx, Nu, false);
 			vector<matrixdb> der_stage_cost = deriv_xu(
 				vect_sc, Nx, Nu, true);
 
@@ -490,7 +490,7 @@ void DDPSolver::forward_pass_(
 		vector<controldb> list_u_star(list_u_);
 		vector<vectordb> list_ineq_eval;
 		vectordb tineq_eval;
-		vector<vectorDA> list_dynamic_eval;
+		vector<vectorDA> list_dynamics_eval;
 		vector<vectorDA> list_constraints_eval; 
 		vector<vectorDA> list_deterministic_constraints_eval_(N+1);
 
@@ -498,7 +498,7 @@ void DDPSolver::forward_pass_(
 		list_x_star.reserve(N);
 		list_u_star.reserve(N);
 		list_ineq_eval.reserve(N);
-		list_dynamic_eval.reserve(N);
+		list_dynamics_eval.reserve(N);
 		list_constraints_eval.reserve(N+1);
 
 		// Rollout
@@ -529,7 +529,7 @@ void DDPSolver::forward_pass_(
 				x_star_DA.nominal_state(), u_star_DA.nominal_control(),
 				spacecraft_parameters_, dynamics_.constants(),
 				solver_parameters_);
-			list_dynamic_eval.emplace_back(x_kp1_DA);
+			list_dynamics_eval.emplace_back(x_kp1_DA);
 
 			// Make new state
 			statedb x_kp1 = make_state(
@@ -584,7 +584,7 @@ void DDPSolver::forward_pass_(
 				list_ineq_ = list_ineq_eval;
 				tineq_ = tineq_eval;
 				cost_ = cost;
-				list_dynamic_eval_ = list_dynamic_eval;
+				list_dynamics_eval_ = list_dynamics_eval;
 				list_constraints_eval_ = list_constraints_eval;
 				break;
 			}
@@ -636,7 +636,7 @@ void DDPSolver::forward_pass_DA_(
 		vector<controldb> list_u_star(list_u_);
 		vector<vectordb> list_ineq_eval;
 		vectordb tineq_eval;
-		vector<vectorDA> list_dynamic_eval;
+		vector<vectorDA> list_dynamics_eval;
 		vector<vectorDA> list_constraints_eval; 
 		vector<vectorDA> list_deterministic_constraints_eval_(N+1);
 		vector<matrixdb> list_Sigma(N+1);
@@ -647,7 +647,7 @@ void DDPSolver::forward_pass_DA_(
 		list_x_star.reserve(N);
 		list_u_star.reserve(N);
 		list_ineq_eval.reserve(N);
-		list_dynamic_eval.reserve(N);
+		list_dynamics_eval.reserve(N);
 		list_constraints_eval.reserve(N+1);
 
 		// Rollout
@@ -677,7 +677,7 @@ void DDPSolver::forward_pass_DA_(
 			double deviation_norm = error.vnorm();
 
 			// Get dynamics convergence radius
-			vectorDA dynamic_eval_prev = list_dynamic_eval_[i];
+			vectorDA dynamic_eval_prev = list_dynamics_eval_[i];
 			double dynamics_radius = convRadius(dynamic_eval_prev, tol_DA);
 
 			// Declare variables
@@ -699,7 +699,7 @@ void DDPSolver::forward_pass_DA_(
 					spacecraft_parameters_, dynamics_.constants(),
 					solver_parameters_);
 			}
-			list_dynamic_eval.emplace_back(x_kp1_DA);
+			list_dynamics_eval.emplace_back(x_kp1_DA);
 
 			// Make new state
 			statedb x_kp1 = make_state(
@@ -758,7 +758,7 @@ void DDPSolver::forward_pass_DA_(
 				list_ineq_ = list_ineq_eval;
 				tineq_ = tineq_eval;
 				cost_ = cost;
-				list_dynamic_eval_ = list_dynamic_eval;
+				list_dynamics_eval_ = list_dynamics_eval;
 				list_constraints_eval_ = list_constraints_eval;
 				break;
 			}
@@ -785,7 +785,8 @@ void DDPSolver::forward_pass_DA_(
 void DDPSolver::solve(
 	statedb const& x0,
 	vector<controldb> const& list_u_init,
-	statedb const& x_goal) {
+	statedb const& x_goal,
+	vector<vectorDA> const& list_dynamics_eval) {
 	// Unpack parameters
 	double tol = solver_parameters_.DDP_tol();
 	unsigned int max_iter = solver_parameters_.DDP_max_iter();
@@ -816,10 +817,12 @@ void DDPSolver::solve(
 	auto start = high_resolution_clock::now();
 	if (recompute_dynamics_) {
 		list_x_ = vector<statedb>();
-		list_dynamic_eval_ = vector<vectorDA>();
-		list_dynamic_eval_.reserve(N);
+		list_dynamics_eval_ = vector<vectorDA>();
+		list_dynamics_eval_.reserve(N);
 		list_x_.reserve(N + 1);
 		list_x_.push_back(x0);
+	} else if (list_dynamics_eval.size() == 0) {
+		list_dynamics_eval_ = list_dynamics_eval;
 	}
 
 	// Make first trajectory evaluation.
@@ -837,7 +840,7 @@ void DDPSolver::solve(
 			vectorDA x_kp1_DA = dynamics_.dynamic()(x_DA.nominal_state(), u_DA.nominal_control(),
 				spacecraft_parameters_, dynamics_.constants(),
 				solver_parameters_);
-			list_dynamic_eval_.push_back(x_kp1_DA);
+			list_dynamics_eval_.push_back(x_kp1_DA);
 
 			// Compute the next step
 			statedb x_kp1 = make_state(

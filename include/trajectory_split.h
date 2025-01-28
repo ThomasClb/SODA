@@ -24,6 +24,7 @@
 #include "constants.h"
 #include "state_t.h"
 #include "control_t.h"
+#include "loads.h"
 #include "splitting_history.h"
 
 
@@ -32,6 +33,7 @@ private:
     std::vector<statedb> list_x_;
     std::vector<controldb> list_u_;
     SplittingHistory splitting_history_;
+    std::vector<DACE::vectorDA> list_dynamics_eval_;
 
 public:
     // Default constructor
@@ -42,6 +44,11 @@ public:
     	std::vector<statedb> const& list_x,
     	std::vector<controldb> const& list_u,
     	SplittingHistory const& splitting_history);
+    TrajectorySplit(
+        std::vector<statedb> const& list_x,
+        std::vector<controldb> const& list_u,
+        SplittingHistory const& splitting_history,
+        std::vector<DACE::vectorDA> const& list_dynamics_eval);
 
     // Copy constructor
     TrajectorySplit(TrajectorySplit const& other);
@@ -56,14 +63,31 @@ public:
     const std::vector<statedb> list_x() const;
     const std::vector<controldb> list_u() const;
     const SplittingHistory splitting_history() const;
+    const std::vector<DACE::vectorDA> list_dynamics_eval() const; 
 
-    // Setters
+    // Setters 
     void set_list_x(std::vector<statedb> const& list_x);
     void set_list_u(std::vector<controldb> const& list_u);
     void set_splitting_history(SplittingHistory const& splitting_history);
+    void set_list_dynamics_eval(std::vector<DACE::vectorDA> const& list_dynamics_eval);
 
-    // Splits a trajectory along a given direction
-    std::vector<TrajectorySplit> split(std::size_t const& direction);
+    // Find the splitting direction of highest nonlinearity.
+    unsigned int find_splitting_direction(
+        std::size_t const& index, double const& transcription_beta);
+
+    // Split a TrajectorySplit into 3 along a given direction.
+    std::pair<TrajectorySplit,TrajectorySplit> split(
+        unsigned int const& dir, DACE::matrixdb const& navigation_error_covariance);
+
+    // Merge 3 TrajectorySplit into 1 along a given direction.
+    // The merged split is the central one.
+    void merge(
+        unsigned int const& dir, DACE::matrixdb const& navigation_error_covariance);
+
+
+    // Friend functions for stream operators
+    friend std::ostream& operator<<(std::ostream& os, const TrajectorySplit& ts);
+    friend std::istream& operator>>(std::istream& is, TrajectorySplit& ts);
 };
 
 #endif

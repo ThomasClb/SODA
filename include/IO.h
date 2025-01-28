@@ -22,6 +22,7 @@
 #include "linalg.h"
 #include "state_t.h"
 #include "control_t.h"
+#include "trajectory_split.h"
 
 // Splits a string into substring.
 std::vector<std::string> split(std::string s, std::string delimiter);
@@ -65,9 +66,7 @@ void print_sample_trajectory_dataset(
 void print_robust_trajectory_dataset(
 	std::string const& file_name,
 	std::string const& system_name,
-	std::vector<statedb> const& list_x,
-	std::vector<controldb> const& list_u,
-	DACE::vectordb const& list_nli,
+	std::deque<TrajectorySplit> const& robust_trajectory,
 	DACE::vectordb const& x_0, DACE::vectordb const& x_f,
 	double const& ToF, bool const& robust_solving,
 	Dynamics const& dynamics,

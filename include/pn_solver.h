@@ -56,7 +56,7 @@ protected:
 	DACE::vectordb correction_; // Vector of all corrections
 	std::vector<DACE::matrixdb> der_INEQ_; // Concatenated constraints derivatives
 	std::vector<std::vector<DACE::matrixdb>> list_der_cost_; // Output cost derivatives [-]
-	std::vector<DACE::vectorDA> list_dynamic_eval_;
+	std::vector<DACE::vectorDA> list_dynamics_eval_;
 	std::vector<DACE::matrixdb> list_feedback_gain_;
 	std::vector<DACE::matrixdb> list_Sigma_;
 	std::vector<DACE::vectorDA> list_constraints_eval_;
@@ -88,7 +88,7 @@ public:
 	const double cost() const;
 	const double violation() const;
 	const double d_th_order_failure_risk() const;
-	const std::vector<DACE::vectorDA> list_dynamic_eval() const;
+	const std::vector<DACE::vectorDA> list_dynamics_eval() const;
 	const std::size_t n_iter() const;
 
 	// Setters

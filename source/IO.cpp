@@ -194,8 +194,7 @@ void print_sample_trajectory_dataset(
 // with reference orbits.
 void print_robust_trajectory_dataset(
 	string const& file_name, string const& system_name,
-	vector<statedb> const& list_x, vector<controldb> const& list_u,
-	vectordb const& list_nli,
+	deque<TrajectorySplit> const& robust_trajectory,
 	vectordb const& x_0, vectordb const& x_f,
 	double const& ToF, bool const& robust_solving,
 	Dynamics const& dynamics,
@@ -218,6 +217,7 @@ void print_robust_trajectory_dataset(
 		2*N);
 
 	// Make lists
+	vector<string> title_history{"Splitting history", "Splitting direction", "Splitting side"};
 	vector<string> title_state{
 		"Nominal state",
 		"x [LU]", "y [LU]", "z [LU]",
@@ -229,7 +229,6 @@ void print_robust_trajectory_dataset(
 	vector<string> title_der_dynamics{"Der dynamics"};
 	vector<string> title_feedback_gain{"Feedback gain"};
 	vector<string> title_Sigma{"Sigma"};
-	vector<string> title_NLI{"NLI", "[-]"};
 	for (size_t i=0; i<Nx; i++) {
 		string A(title_state[1+i]), B;
 		for (size_t j=0; j<Nx; j++) {
@@ -252,34 +251,68 @@ void print_robust_trajectory_dataset(
 	vector<string> title_departure(title_state), title_arrival(title_state);
 	title_departure[0] = "Departure orbit";
 	title_arrival[0] = "Arrival orbit";
-	vector<vector<string>> list_title{
-		title_state, title_der_dynamics, title_Sigma,
-		title_control, title_feedback_gain,
-		title_NLI,
-		title_departure, title_arrival};
+	vector<vector<string>> list_title{title_departure, title_arrival};
+	list_title.reserve(robust_trajectory.size()*6);
+	vector<matrixdb> list_data{mat_departure, mat_arrival};
+	list_data.reserve(robust_trajectory.size()*6);
 
-	// Make matrices
+	// Loop on all splits
 	matrixdb mat_nominal_state(N+1, Nx), mat_der_dynamics(N+1, Nx*(Nx+Nu)), mat_Sigma(N+1, Nx*Nx);
-	matrixdb mat_nominal_control(N, Nu), mat_feeedback_gain(N, Nx*Nu), mat_NLI(N, 1);
-	mat_NLI.setcol(0, list_nli);
-	for (size_t i=0; i<N; i++) {
-		statedb x_i(list_x[i]);
-		controldb u_i(list_u[i]);
-		mat_nominal_state.setrow(i, x_i.nominal_state());
-		mat_der_dynamics.setrow(i, matrix_to_vector(x_i.der_dynamics())); 
-		mat_Sigma.setrow(i, matrix_to_vector(x_i.Sigma()));
-		mat_nominal_control.setrow(i, u_i.nominal_control());
-		mat_feeedback_gain.setrow(i, matrix_to_vector(u_i.feedback_gain()));
-	}
-	statedb x_i(list_x[N]);
-	mat_nominal_state.setrow(N, x_i.nominal_state());
-	mat_der_dynamics.setrow(N, matrix_to_vector(x_i.der_dynamics())); 
-	mat_Sigma.setrow(N, matrix_to_vector(x_i.Sigma()));
-	vector<matrixdb> list_data{
-		mat_nominal_state, mat_der_dynamics, mat_Sigma,
-		mat_nominal_control, mat_feeedback_gain, mat_NLI,
-		mat_departure, mat_arrival};
+	matrixdb mat_nominal_control(N, Nu), mat_feeedback_gain(N, Nx*Nu);
+	for (size_t k=0; k<robust_trajectory.size(); k++) {
+		TrajectorySplit trajectory_split(robust_trajectory[k]);
+		SplittingHistory history(trajectory_split.splitting_history());
+		matrixdb mat_history(history.size(), 2);
+		for (size_t i=0; i<history.size(); i++) {
+			mat_history.at(i, 0) = history[i].first;
+			mat_history.at(i, 1) = history[i].second;
+		}
 
+		// Make matrices
+		for (size_t i=0; i<N; i++) {
+			statedb x_i(trajectory_split.list_x()[i]);
+			controldb u_i(trajectory_split.list_u()[i]);
+			mat_nominal_state.setrow(i, x_i.nominal_state());
+			mat_der_dynamics.setrow(i, matrix_to_vector(x_i.der_dynamics())); 
+			mat_Sigma.setrow(i, matrix_to_vector(x_i.Sigma()));
+			mat_nominal_control.setrow(i, u_i.nominal_control());
+			mat_feeedback_gain.setrow(i, matrix_to_vector(u_i.feedback_gain()));
+		}
+		statedb x_i(trajectory_split.list_x()[N]);
+		mat_nominal_state.setrow(N, x_i.nominal_state());
+		mat_der_dynamics.setrow(N, matrix_to_vector(x_i.der_dynamics())); 
+		mat_Sigma.setrow(N, matrix_to_vector(x_i.Sigma()));
+
+		// Add to lists
+
+		// Titles
+		vector<string> title_history_k(title_history);
+		vector<string> title_state_k(title_state);
+		vector<string> title_control_k(title_control);
+		vector<string> title_der_dynamics_k(title_der_dynamics);
+		vector<string> title_Sigma_k(title_Sigma);
+		vector<string> title_feedback_gain_k(title_feedback_gain);
+		title_history_k[0] = title_history_k[0] + " GMM " + to_string(k);
+		title_state_k[0] = title_state_k[0] + " GMM " + to_string(k);
+		title_control_k[0] = title_control_k[0] + " GMM " + to_string(k);
+		title_der_dynamics_k[0] = title_der_dynamics_k[0] + " GMM " + to_string(k);
+		title_Sigma_k[0] = title_Sigma_k[0] + " GMM " + to_string(k);
+		title_feedback_gain_k[0] = title_feedback_gain_k[0] + " GMM " + to_string(k);
+		list_title.push_back(title_history_k);
+		list_title.push_back(title_state_k);
+		list_title.push_back(title_der_dynamics_k);
+		list_title.push_back(title_Sigma_k);
+		list_title.push_back(title_control_k);
+		list_title.push_back(title_feedback_gain_k);
+
+		// Data
+		list_data.push_back(mat_history);
+		list_data.push_back(mat_nominal_state);
+		list_data.push_back(mat_der_dynamics);
+		list_data.push_back(mat_Sigma);
+		list_data.push_back(mat_nominal_control);
+		list_data.push_back(mat_feeedback_gain);
+	}
 
 	// Make file name
 	int power = 9;

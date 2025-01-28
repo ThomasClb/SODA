@@ -50,7 +50,7 @@ protected:
 	double rho_;
 	double alpha_;
 	double d_rho_;
-	std::vector<DACE::vectorDA> list_dynamic_eval_;
+	std::vector<DACE::vectorDA> list_dynamics_eval_;
 	std::vector<DACE::vectorDA> list_constraints_eval_;
 	std::vector<DACE::vectorDA> list_deterministic_constraints_eval_;
 	std::vector<DACE::matrixdb> list_Qu_;
@@ -86,7 +86,7 @@ public:
 	const std::vector<statedb> list_x() const;
 	const std::vector<controldb> list_u() const;
 	const std::vector<DACE::vectordb> list_ineq() const;
-	const std::vector<DACE::vectorDA> list_dynamic_eval() const;
+	const std::vector<DACE::vectorDA> list_dynamics_eval() const;
 	const std::vector<DACE::vectorDA> list_deterministic_constraints_eval() const;
 	const DACE::vectordb tineq() const;
 	const double cost() const;
@@ -185,7 +185,8 @@ public:
 	void solve(
 		statedb const& x0,
 		std::vector<controldb> const& list_u_init,
-		statedb const& x_goal);
+		statedb const& x_goal,
+		std::vector<DACE::vectorDA> const& list_dynamics_eval);
 };
 
 // Evaluates the convergence radius of a DA vector.
