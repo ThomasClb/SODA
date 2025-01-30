@@ -43,8 +43,6 @@ protected:
 	SolverParameters solver_parameters_;
 	SpacecraftParameters spacecraft_parameters_;
 	Dynamics dynamics_;
-	std::vector<statedb> list_x_; // List of states
-	std::vector<controldb> list_u_; // List of controls
 	double cost_; // Output cost [-]
 	double violation_; // Constraints violation [-]
 	double d_th_order_failure_risk_; // Estimation of the failure risk [-]
@@ -83,23 +81,23 @@ public:
 	// No unit test.
 	const AULSolver AULsolver() const;
 	const DDPSolver DDPsolver() const;
-	const std::vector<statedb> list_x() const;
-	const std::vector<controldb> list_u() const;
 	const double cost() const;
 	const double violation() const;
 	const double d_th_order_failure_risk() const;
 	const std::vector<DACE::vectorDA> list_dynamics_eval() const;
 	const std::size_t n_iter() const;
 
-	// Setters
-	// No unit test.
-	void set_list_x_u();
+	void set_list_x_u(TrajectorySplit const& trajectory_split);
+
+	void update_robust_trajectory(
+		std::deque<TrajectorySplit>* const& p_list_trajectory_split,
+		std::size_t const& k);
 
 	// Solves the optimisation problem with a projected Newton method
 	// Inspired by ALTRO (Julia).
 	// See: https://github.com/RoboticExplorationLab/Altro.jl
 	// No unit test.
-	void solve(statedb const& x_goal);
+	void solve(std::deque<TrajectorySplit>* const& p_list_trajectory_split, statedb const& x_goal);
 	
 	// Iterative line search for PN.
 	// Inspired by ALTRO (Julia).

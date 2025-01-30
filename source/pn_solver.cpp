@@ -18,7 +18,6 @@ using namespace std::chrono;
 PNSolver::PNSolver() : AULsolver_(),
 	solver_parameters_(), dynamics_(),
 	spacecraft_parameters_(),
-	list_x_(vector<statedb>(0)), list_u_(vector<controldb>(0)),
 	cost_(0), d_th_order_failure_risk_(1.0),
 	list_der_cost_(vector<vector<matrixdb>>(0)),
 	list_dynamics_eval_(0), list_constraints_eval_(0),
@@ -27,7 +26,6 @@ PNSolver::PNSolver() : AULsolver_(),
 
 // Constructors
 PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
-	list_x_(AULsolver.trajectory_split().list_x()), list_u_(AULsolver.trajectory_split().list_u()),
 	cost_(AULsolver.cost()), violation_(AULsolver.violation()),
 	d_th_order_failure_risk_(AULsolver_.d_th_order_failure_risk()),
 	list_der_cost_(vector<vector<matrixdb>>(AULsolver.list_ineq().size() + 1)),
@@ -44,41 +42,11 @@ PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
 	unsigned int Nu = solver_parameters_.Nu();
 	unsigned int Nineq = solver_parameters_.Nineq();
 	unsigned int Ntineq = solver_parameters_.Ntineq();
-	X_U_ = vectordb(N*(Nx + Nu)); // TO DO update
-	list_dynamics_eval_ = vector<vectorDA>(N);
+	X_U_ = vectordb(N*(Nx + Nu));
 	list_constraints_eval_ = vector<vectorDA>(N + 1);
 	correction_ = vectordb(N*(Nx + Nu), 0);
 	INEQ_ = vectordb(N*(Nx + Nineq) + Ntineq);
 	der_INEQ_ = vector<matrixdb>(N*6 + 2);
-
-	// First control
-	list_Sigma_.push_back(list_x_[0].Sigma());
-	vectordb u_0 = list_u_[0].nominal_control();
-	list_feedback_gain_.push_back(list_u_[0].feedback_gain());
-	for (size_t j=0; j<Nu; j++)  {
-		X_U_[j] = u_0[j];
-	}
-
-	// Loop
-	for (size_t i=1; i<N; i++) {
-		vectordb x_i = list_x_[i].nominal_state();
-		vectordb u_i = list_u_[i].nominal_control();
-		list_Sigma_.push_back(list_x_[i].Sigma());
-		list_feedback_gain_.push_back(list_u_[i].feedback_gain());
-		for (size_t j=0; j<Nx; j++)  {
-			X_U_[(i - 1)*(Nx + Nu) + Nu + j] = x_i[j];
-		}
-		for (size_t j=0; j<Nu; j++)  {
-			X_U_[i*(Nx + Nu) + j] = u_i[j];
-		}
-	}
-
-	// Last state
-	vectordb x_N = list_x_[N].nominal_state();
-	list_Sigma_.push_back(list_x_[N].Sigma());
-	for (size_t j=0; j<Nx; j++)  {
-		X_U_[(N - 1)*(Nx + Nu) + Nu + j] = x_N[j];
-	}
 }
 
 // Copy constructor
@@ -86,7 +54,6 @@ PNSolver::PNSolver(
 	PNSolver const& solver) : AULsolver_(solver.AULsolver_),
 	solver_parameters_(solver.solver_parameters_), dynamics_(solver.dynamics_),
 	spacecraft_parameters_(solver.spacecraft_parameters_),
-	list_x_(solver.list_x_), list_u_(solver.list_u_),
 	cost_(solver.cost_), d_th_order_failure_risk_(solver.d_th_order_failure_risk_),
 	list_dynamics_eval_(solver.list_dynamics_eval_),
 	list_constraints_eval_(solver.list_constraints_eval_),
@@ -101,44 +68,111 @@ PNSolver::~PNSolver() {}
 // Getters
 const AULSolver PNSolver::AULsolver() const { return AULsolver_; }
 const DDPSolver PNSolver::DDPsolver() const { return AULsolver_.DDPsolver(); }
-const vector<statedb> PNSolver::list_x() const { return list_x_; }
-const vector<controldb> PNSolver::list_u() const { return list_u_; }
 const double PNSolver::cost() const { return cost_; }
 const double PNSolver::violation() const { return violation_; }
 const double PNSolver::d_th_order_failure_risk() const { return d_th_order_failure_risk_; }
 const vector<vectorDA> PNSolver::list_dynamics_eval() const { return list_dynamics_eval_; }
 const size_t PNSolver::n_iter() const { return n_iter_; }
 
-// Setters
-void PNSolver::set_list_x_u() {
+
+void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 	// Unpack
+	DDPSolver ddp_solver = AULsolver_.DDPsolver();
+	solver_parameters_ = ddp_solver.solver_parameters();
+	spacecraft_parameters_ = ddp_solver.spacecraft_parameters();
+	dynamics_ = ddp_solver.dynamics();
 	unsigned int N = solver_parameters_.N();
 	unsigned int Nx = solver_parameters_.Nx();
 	unsigned int Nu = solver_parameters_.Nu();
+	unsigned int Nineq = solver_parameters_.Nineq();
+	unsigned int Ntineq = solver_parameters_.Ntineq();
+	X_U_ = vectordb(N*(Nx + Nu));
+	list_dynamics_eval_ = trajectory_split.list_dynamics_eval();
 
-	// Transfer data to the output lists
-	list_u_[0] = X_U_.extract( 0, Nu - 1);
-	list_u_[0].set_feedback_gain(list_feedback_gain_[0]);
-	for (size_t i=1; i< N; i++) {
-		list_x_[i] = X_U_.extract(
-			(i - 1) * (Nx + Nu) + Nu, (i - 1) * (Nx + Nu) + Nu + Nx - 1);
-		list_x_[i].set_Sigma(list_Sigma_[i]);
-
-		list_x_[i].set_der_dynamics(list_dynamics_eval_[i].linear());
-		list_u_[i] = X_U_.extract(
-			i * (Nx + Nu), i * (Nx + Nu) + Nu - 1);
-		list_u_[i].set_feedback_gain(list_feedback_gain_[i]);
+	// First control
+	list_Sigma_.push_back(trajectory_split.list_x()[0].Sigma());
+	vectordb u_0 = trajectory_split.list_u()[0].nominal_control();
+	list_feedback_gain_.push_back(trajectory_split.list_u()[0].feedback_gain());
+	for (size_t j=0; j<Nu; j++)  {
+		X_U_[j] = u_0[j];
 	}
-	list_x_[N] = X_U_.extract(
-		(N - 1) * (Nx + Nu) + Nu, (N - 1) * (Nx + Nu) + Nu + Nx - 1);
-	list_x_[N].set_Sigma(list_Sigma_[N-1]);
-	list_x_[N].set_der_dynamics(list_dynamics_eval_[N-1].linear());
+
+	// Loop
+	for (size_t i=1; i<N; i++) {
+		vectordb x_i = trajectory_split.list_x()[i].nominal_state();
+		vectordb u_i = trajectory_split.list_u()[i].nominal_control();
+		list_Sigma_.push_back(trajectory_split.list_x()[i].Sigma());
+		list_feedback_gain_.push_back(trajectory_split.list_u()[i].feedback_gain());
+		for (size_t j=0; j<Nx; j++)  {
+			X_U_[(i - 1)*(Nx + Nu) + Nu + j] = x_i[j];
+		}
+		for (size_t j=0; j<Nu; j++)  {
+			X_U_[i*(Nx + Nu) + j] = u_i[j];
+		}
+	}
+
+	// Last state
+	vectordb x_N = trajectory_split.list_x()[N].nominal_state();
+	list_Sigma_.push_back(trajectory_split.list_x()[N].Sigma());
+	for (size_t j=0; j<Nx; j++)  {
+		X_U_[(N - 1)*(Nx + Nu) + Nu + j] = x_N[j];
+	}
 }
+
+void PNSolver::update_robust_trajectory(
+	deque<TrajectorySplit>* const& p_list_trajectory_split,
+	size_t const& k) {
+	// Unpack
+	DDPSolver ddp_solver = AULsolver_.DDPsolver();
+	solver_parameters_ = ddp_solver.solver_parameters();
+	spacecraft_parameters_ = ddp_solver.spacecraft_parameters();
+	dynamics_ = ddp_solver.dynamics();
+	unsigned int N = solver_parameters_.N();
+	unsigned int Nx = solver_parameters_.Nx();
+	unsigned int Nu = solver_parameters_.Nu();
+	unsigned int Nineq = solver_parameters_.Nineq();
+	unsigned int Ntineq = solver_parameters_.Ntineq();
+
+	// Init
+	vector<statedb> list_x{p_list_trajectory_split->at(k).list_x()[0]};
+	vector<controldb> list_u;
+	list_x.reserve(N); list_u.reserve(N);
+	
+	// Transfer data to the output lists
+	controldb u(X_U_.extract( 0, Nu - 1));
+	u.set_feedback_gain(list_feedback_gain_[0]);
+	list_u.push_back(u);
+	statedb x;
+	for (size_t i=1; i< N; i++) {
+		x = X_U_.extract(
+			(i - 1) * (Nx + Nu) + Nu, (i - 1) * (Nx + Nu) + Nu + Nx - 1);
+		x.set_Sigma(list_Sigma_[i]);
+		x.set_der_dynamics(list_dynamics_eval_[i].linear());
+		list_x.push_back(x);
+		u = X_U_.extract(
+			i * (Nx + Nu), i * (Nx + Nu) + Nu - 1);
+		u.set_feedback_gain(list_feedback_gain_[i]);
+		list_u.push_back(u);
+	}
+	x = X_U_.extract(
+		(N - 1) * (Nx + Nu) + Nu, (N - 1) * (Nx + Nu) + Nu + Nx - 1);
+	x.set_Sigma(list_Sigma_[N-1]);
+	x.set_der_dynamics(list_dynamics_eval_[N-1].linear());
+	list_x.push_back(x);
+
+	// Assign
+	p_list_trajectory_split->at(k).set_list_x(list_x);
+	p_list_trajectory_split->at(k).set_list_u(list_u);
+	p_list_trajectory_split->at(k).set_list_dynamics_eval(list_dynamics_eval_);
+}
+
 
 // Solves the optimisation problem with a projected Newton method
 // Inspired from ALTRO (Julia).
 // See: https://github.com/RoboticExplorationLab/Altro.jl
-void PNSolver::solve(statedb const& x_goal) {
+void PNSolver::solve(
+	deque<TrajectorySplit>* const& p_list_trajectory_split,
+	statedb const& x_goal) {
 	// Unpack
 	unsigned int N = solver_parameters_.N();
 	unsigned int Nx = solver_parameters_.Nx();
@@ -163,164 +197,120 @@ void PNSolver::solve(statedb const& x_goal) {
 		cout << endl << "PN solving" << endl;
 	}
 
-	// Evaluate constraints
-	update_constraints_(x_goal, true);
-	violation_ = get_max_constraint_(INEQ_);
-	double continuity_violation = get_max_continuity_constraint_(INEQ_);
-	d_th_order_failure_risk_ = evaluate_risk();
+	// Loop on trajectory splits
+	for (size_t k=0; k<p_list_trajectory_split->size(); k++) {
+		set_list_x_u(p_list_trajectory_split->at(k));
 
-	// Init loop
-	double cv_rate = 1e15;
-	double duration = 0.0;
-	double violation_prev = 1e15;
-	n_iter_ = 0;
-	auto start = high_resolution_clock::now();
-	auto stop = high_resolution_clock::now();
-	for (size_t i = 0; i < max_iter; i++) {
-		n_iter_ ++;
+		// Evaluate constraints
+		update_constraints_(x_goal, false);
+		violation_ = get_max_constraint_(INEQ_);
+		double continuity_violation = get_max_continuity_constraint_(INEQ_);
+		d_th_order_failure_risk_ = evaluate_risk();
 
-		// Output
-		if (verbosity == 0) {
-			// TEMP
+		// Init loop
+		double cv_rate = 1e15;
+		double duration = 0.0;
+		double violation_prev = 1e15;
+		n_iter_ = 0;
+		auto start = high_resolution_clock::now();
+		auto stop = high_resolution_clock::now();
+		for (size_t i = 0; i < max_iter; i++) {
+			n_iter_ ++;
 
-
-			// Get NLI
-			if (i!=0)
-				set_list_x_u(); // Print results in list_x, list_u
-			vectordb list_nli = nl_index(
-		    	list_dynamics_eval_, list_x_,
-		    	list_u_, solver_parameters_.transcription_beta());
-			double nli = 0;
-			for (size_t i=0; i<N; i++) {
-				if (list_nli[i]>nli)
-					nli = list_nli[i];
-			}
-
-
-			stop = high_resolution_clock::now();
-			auto duration = duration_cast<microseconds>(stop - start);
-			string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-			start = high_resolution_clock::now();
-			cout << i 
-				<< " - " << duration_str
-				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-				<< " - " << violation_ 
-				<< " - " << 100*d_th_order_failure_risk_
-				<< " - " << nli << endl;
-		} else if (verbosity == 1) {
-			if (i % 5 == 0) {
-
-				// TEMP
-
-
-				// Get NLI
-				if (i!=0)
-					set_list_x_u(); // Print results in list_x, list_u
-				vectordb list_nli = nl_index(
-			    	list_dynamics_eval_, list_x_,
-			    	list_u_, solver_parameters_.transcription_beta());
-				double nli = 0;
-				for (size_t i=0; i<N; i++) {
-					if (list_nli[i]>nli)
-						nli = list_nli[i];
-				}
-
+			// Output
+			if (verbosity == 0) {
 				stop = high_resolution_clock::now();
 				auto duration = duration_cast<microseconds>(stop - start);
 				string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
 				start = high_resolution_clock::now();
-				cout << i 	
+				cout << i 
 					<< " - " << duration_str
 					<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
 					<< " - " << violation_ 
-					<< " - " << 100*d_th_order_failure_risk_
-					<< " - " << nli << endl;
+					<< " - " << 100*d_th_order_failure_risk_ << endl;
+			} else if (verbosity == 1) {
+				if (i % 5 == 0) {
+					stop = high_resolution_clock::now();
+					auto duration = duration_cast<microseconds>(stop - start);
+					string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
+					start = high_resolution_clock::now();
+					cout << i 	
+						<< " - " << duration_str
+						<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
+						<< " - " << violation_ 
+						<< " - " << 100*d_th_order_failure_risk_ << endl;
+				}
+			}
+
+			// Check termination constraints
+			if (violation_ < constraint_tol // If constraints are small
+				|| violation_ == violation_prev // If no progress is made
+				|| (d_th_order_failure_risk_ < solver_parameters_.transcription_beta() 
+					&& continuity_violation < constraint_tol))
+				break;
+
+			// Update the constraints using DA
+			else if (i != 0) {
+				update_constraints_(x_goal, false);
+				continuity_violation = get_max_continuity_constraint_(INEQ_);
+				d_th_order_failure_risk_ = evaluate_risk();
+			}
+
+			// Reset corrections
+			correction_ = vectordb(N*(Nx + Nu), 0);
+
+			// Build active constraint vector and its gradient
+			linearised_constraints constraints = get_linearised_constraints_();
+			vector<matrixdb> block_D = get<1>(constraints);
+			
+			// Make S = D * D^t as a tridiagonal matrix
+			sym_tridiag_matrixdb S = get_block_S_sq_(
+				block_D, get<2>(constraints));
+
+			// Compute block tridiagonal Cholesky factorisation of S.
+			sym_tridiag_matrixdb L = cholesky_(S);
+
+			// Line search loop
+			cv_rate = 1e15; double violation_0 = violation_;
+			violation_prev = violation_;
+			for (size_t j = 0; j < 20; j++) {
+				// Termination checks
+				if (violation_ < constraint_tol || cv_rate < cv_rate_threshold)
+					break;
+
+				// Line search
+				violation_ = line_search_(x_goal, L, block_D, get<0>(constraints), violation_0);
+
+				// Update cv_rate
+				cv_rate = log(violation_) / log(violation_0);
+				violation_0 = violation_;
 			}
 		}
 
-		// Check termination constraints
-		if (violation_ < constraint_tol // If constraints are small
-			|| violation_ == violation_prev // If no progress is made
-			|| (d_th_order_failure_risk_ < solver_parameters_.transcription_beta() 
-				&& continuity_violation < constraint_tol))
-			break;
-
-		// Update the constraints using DA
-		else if (i != 0) {
-			update_constraints_(x_goal, false);
-			continuity_violation = get_max_continuity_constraint_(INEQ_);
-			d_th_order_failure_risk_ = evaluate_risk();
+		// Output
+		if (verbosity == 0) {
+			stop = high_resolution_clock::now();
+			auto duration = duration_cast<microseconds>(stop - start);
+			string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
+			start = high_resolution_clock::now();
+			cout  << "OUT"
+				<< " - " << duration_str
+				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
+				<< " - " << violation_ 
+				<< " - " << 100*d_th_order_failure_risk_ << endl;
+		} else if (verbosity == 1) {
+			stop = high_resolution_clock::now();
+			auto duration = duration_cast<microseconds>(stop - start);
+			string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
+			start = high_resolution_clock::now();
+			cout << "OUT"
+				<< " - " << duration_str
+				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
+				<< " - " << violation_ 
+				<< " - " << 100*d_th_order_failure_risk_  << endl;
 		}
-
-		// Reset corrections
-		correction_ = vectordb(N*(Nx + Nu), 0);
-
-		// Build active constraint vector and its gradient
-		linearised_constraints constraints = get_linearised_constraints_();
-		vector<matrixdb> block_D = get<1>(constraints);
-		
-		// Make S = D * D^t as a tridiagonal matrix
-		sym_tridiag_matrixdb S = get_block_S_sq_(
-			block_D, get<2>(constraints));
-
-		// Compute block tridiagonal Cholesky factorisation of S.
-		sym_tridiag_matrixdb L = cholesky_(S);
-
-		// Line search loop
-		cv_rate = 1e15; double violation_0 = violation_;
-		violation_prev = violation_;
-		for (size_t j = 0; j < 20; j++) {
-			// Termination checks
-			if (violation_ < constraint_tol || cv_rate < cv_rate_threshold)
-				break;
-
-			// Line search
-			violation_ = line_search_(x_goal, L, block_D, get<0>(constraints), violation_0);
-
-			// Update cv_rate
-			cv_rate = log(violation_) / log(violation_0);
-			violation_0 = violation_;
-		}
+		update_robust_trajectory(p_list_trajectory_split, k);
 	}
-
-	// TEMP
-
-	// Get NLI
-	set_list_x_u(); // Print results in list_x, list_u
-	vectordb list_nli = nl_index(
-    	list_dynamics_eval_, list_x_,
-    	list_u_, solver_parameters_.transcription_beta());
-	double nli = 0;
-	for (size_t i=0; i<N; i++) {
-		if (list_nli[i]>nli)
-			nli = list_nli[i];
-	}
-
-	// Output
-	if (verbosity == 0) {
-		stop = high_resolution_clock::now();
-		auto duration = duration_cast<microseconds>(stop - start);
-		string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-		start = high_resolution_clock::now();
-		cout  << "OUT"
-			<< " - " << duration_str
-			<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-			<< " - " << violation_ 
-			<< " - " << 100*d_th_order_failure_risk_
-			<< " - " << nli << endl;
-	} else if (verbosity == 1) {
-		stop = high_resolution_clock::now();
-		auto duration = duration_cast<microseconds>(stop - start);
-		string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-		start = high_resolution_clock::now();
-		cout << "OUT"
-			<< " - " << duration_str
-			<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-			<< " - " << violation_ 
-			<< " - " << 100*d_th_order_failure_risk_
-			<< " - " << nli << endl;
-	}
-	set_list_x_u(); // Print results in list_x, list_u
 	return;
 }
 
@@ -564,7 +554,8 @@ void PNSolver::update_constraints_(
 
 		// Get DA x, u
 		if (i == 0)
-			x_DA = id_vector(list_x_[0].nominal_state(), 0, 0, Nx - 1);
+			x_DA = id_vector(X_U_.extract(Nu, Nu + Nx - 1),
+				0, 0, Nx - 1);
 		else 
 			x_DA = id_vector(
 				X_U_.extract(
@@ -721,7 +712,7 @@ vectordb PNSolver::update_constraints_double_(
 			dx_u[Nx + j] = corr[i*(Nu + Nx) + j];
 		}
 		if (i == 0) {
-			x = list_x_[0].nominal_state(); // Never changes
+			x = X_U_.extract(Nu, Nu + Nx - 1); // Never changes
 			for (size_t j=0; j<Nx; j++) {
 				dx_u[j] = 0.0;
 			}

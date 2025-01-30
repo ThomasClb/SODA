@@ -57,8 +57,7 @@ matrixdb generate_normal_sample(
 vectordb propagate_trajectory(
 	vectordb const& x_0_sample,
 	statedb const& x_goal,
-	vector<statedb> const& list_x,
-	vector<controldb> const& list_u,
+	RobustTrajectory const& robust_trajectory,
 	matrixdb const& navigation_error_sample,
 	SolverParameters const& solver_parameters,
 	SpacecraftParameters const& spacecraft_parameters,
@@ -92,6 +91,14 @@ vectordb propagate_trajectory(
 		p_mat_state->setrow(0, x_0_sample);
 	}
 
+	// Find nominal trajectory
+	vector<pair<double, size_t>> list_maha = robust_trajectory.get_mahalanobis_distance(x_0_sample);
+	size_t index_nominal(list_maha[0].second);
+
+	// TO DO other method
+	vector<statedb> list_x(robust_trajectory[index_nominal].list_x());
+	vector<controldb> list_u(robust_trajectory[index_nominal].list_u());
+
 	// Loop on all steps
 	for (size_t i = 0; i < N; i++) {
 
@@ -100,6 +107,9 @@ vectordb propagate_trajectory(
 		controldb u = list_u[i];
 		statedb x = list_x[i];
 		vectordb dx = x_sample - x.nominal_state();
+
+		// TO DO feedback gain computation type
+
 		vectordb du = (u.feedback_gain()*dx).extract(0, Nu-1);
 		vectordb u_sample = u.nominal_control() + du;
 
@@ -184,8 +194,8 @@ vectordb propagate_trajectory(
 
 // Tests a robust command law with MC.
 vector<vector<matrixdb>>  test_trajectory(
-	vector<statedb> const& list_x, vector<controldb> const& list_u,
-	statedb const& x_goal, size_t const& size_sample,
+	RobustTrajectory const& robust_trajectory,
+	statedb const& x_0, statedb const& x_goal, size_t const& size_sample,
 	SODA const& solver, int const& test_case_id,
 	bool const& robust_optimisation,
 	SolverParameters const& solver_parameters,
@@ -230,9 +240,9 @@ vector<vector<matrixdb>>  test_trajectory(
 	// Get nominal trajectory
 	auto start = high_resolution_clock::now();
 	vectordb nominal_results = propagate_trajectory(
-			list_x[0].nominal_state(), x_goal,
-			list_x, list_u,
-			matrixdb(list_x[0].nominal_state().size(), N, 0.0),
+			x_0.nominal_state(), x_goal,
+			robust_trajectory,
+			matrixdb(Nx, N, 0.0),
 			solver_parameters, spacecraft_parameters, dynamics,
 			test_case_id,
 			&mat_state_, &mat_control_, 
@@ -241,11 +251,11 @@ vector<vector<matrixdb>>  test_trajectory(
 	
 	// Get initial conditions sample
 	matrixdb ic_sample = generate_normal_sample(
-		size_sample, list_x[0].nominal_state(), list_x[0].Sigma());
+		size_sample, x_0.nominal_state(), x_0.Sigma());
 
 	// Get navigation error sample
 	matrixdb nav_sample = generate_normal_sample(
-		size_sample*N, 0.0*list_x[0].nominal_state(), solver_parameters.navigation_error_covariance());
+		size_sample*N, 0.0*x_0.nominal_state(), solver_parameters.navigation_error_covariance());
 
 	// Compute mean and store results
 	vectordb mean_results(nominal_results*0);
@@ -254,10 +264,10 @@ vector<vector<matrixdb>>  test_trajectory(
 	for (size_t i=0; i<size_sample; i++) {
 		vectordb results = propagate_trajectory(
 			ic_sample.getcol(i), x_goal,
-			list_x, list_u,
+			robust_trajectory,
 			nav_sample.submat(
 				0, i*N,
-				list_x[0].nominal_state().size() - 1, (i+1)*N - 1),
+				Nx - 1, (i+1)*N - 1),
 			solver_parameters, spacecraft_parameters, dynamics,
 			test_case_id,
 			&mat_state_, &mat_control_,
@@ -349,9 +359,9 @@ vector<vector<matrixdb>>  test_trajectory(
 		// ID
 		cout << test_case_id << ", ";
 		cout << spacecraft_parameters.thrust()*thrustu/(spacecraft_parameters.initial_mass()*massu) << ", ";
-		cout << N*list_x[0].nominal_state()[7]*tu*SEC2DAYS << ", ";
-		cout << sqrt(list_x[0].Sigma().at(0, 0)) << ", ";
-		cout << sqrt(list_x[0].Sigma().at(3, 3)) << ", ";
+		cout << N*x_0.nominal_state()[7]*tu*SEC2DAYS << ", ";
+		cout << sqrt(x_0.Sigma().at(0, 0)) << ", ";
+		cout << sqrt(x_0.Sigma().at(3, 3)) << ", ";
 		cout << N << ", ";
 		if (robust_optimisation)
 			cout << solver_parameters.transcription_beta() << ", ";

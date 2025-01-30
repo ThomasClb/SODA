@@ -322,8 +322,8 @@ void AULSolver::solve(
 		AUL_n_iter_ = 0;
 		violation_ = cost;
 		d_th_order_failure_risk_ = 1.0;
-		double LOADS_tol = 1.3e-4; // TO DO remove make tol LOADS attribute of solver params
-		unsigned int max_depth = 1; // TO DO remove make tol LOADS attribute of solver params
+		double LOADS_tol = 4e-3; // TO DO remove make tol LOADS attribute of solver params
+		unsigned int max_depth = 2; // TO DO remove make tol LOADS attribute of solver params
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
 			
 			// Make the trajectory split sufficiently linear

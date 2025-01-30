@@ -128,23 +128,25 @@ def plot_departure_arrival(dataset, axis_0, axis_1, ax,
     # Retrieve data
     nb_dataets = len(dataset.list_dataset_names)
     for i in range(nb_dataets):
-        if (dataset.list_dataset_names[i][0] == "Nominal state"):
-            data_state = dataset.list_datasets[i].copy()
-            
+        if (dataset.list_dataset_names[i][0] == "Departure orbit"):
+            data_departure = dataset.list_datasets[i].copy()
+        if (dataset.list_dataset_names[i][0] == "Arrival orbit"):
+            data_arrival = dataset.list_datasets[i].copy()
+                
     # Denormalise
     if denormalise:
         LU = dataset.spacecraft_parameters.constants.LU
         data_state *= LU
             
     # Plot departure and arrival
-    ax.scatter(data_state[axis_0, 0], data_state[axis_1, 0],
+    ax.scatter(data_departure[axis_0, 0], data_departure[axis_1, 0],
                color=list_colors[0], marker=list_markers[0])
-    ax.text(data_state[axis_0, 0], data_state[axis_1, 0],
+    ax.text(data_departure[axis_0, 0], data_departure[axis_1, 0],
             " $x_0$",
               zorder=100)
-    ax.scatter(data_state[axis_0, -1], data_state[axis_1, -1],
+    ax.scatter(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
                color=list_colors[1], marker=list_markers[1])
-    ax.text(data_state[axis_0, -1], data_state[axis_1, -1],
+    ax.text(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
             " $x_t$",
               zorder=100)
     
@@ -217,7 +219,6 @@ def plot_reference_orbits(dataset, axis_0, axis_1, ax,
             label='Arrival orbit',
             color=list_colors[1], linestyle=list_linestyles[1])
 
-
 """
     Plots the projections of the uncertainty ellipsoïds of a transfer.
 
@@ -225,14 +226,24 @@ def plot_reference_orbits(dataset, axis_0, axis_1, ax,
 def plot_state_distribution(dataset, axis_0, axis_1, ax, plot_CL,
                             scale, alpha, color, linewidth, denormalise):
     # Retreive data
-    nb_dataets = len(dataset.list_dataset_names)
-    for i in range(nb_dataets):
-        if (dataset.list_dataset_names[i][0] == "Sigma"):
-            data_Sigma = dataset.list_datasets[i].copy()
-        elif (dataset.list_dataset_names[i][0] == "Nominal state"):
-            data_state = dataset.list_datasets[i].copy()
-        elif (dataset.list_dataset_names[i][0] == "Der dynamics"):
-            data_der = dataset.list_datasets[i].copy()
+    nb_datasets = len(dataset.list_dataset_names)
+
+    # Retrieve GMM size
+    nb_GMM = int((nb_datasets - 2)/6)
+    list_data_state = []
+    list_data_Sigma = []
+    list_data_der = []
+    for k in range(nb_GMM):
+        for i in range(nb_datasets):
+            if (dataset.list_dataset_names[i][0] == "Sigma GMM " + str(k)):
+                data_Sigma = dataset.list_datasets[i].copy()
+                list_data_Sigma.append(data_Sigma)
+            elif (dataset.list_dataset_names[i][0] == "Nominal state GMM " + str(k)):
+                data_state = dataset.list_datasets[i].copy()
+                list_data_state.append(data_state)
+            elif (dataset.list_dataset_names[i][0] == "Der dynamics GMM " + str(k)):
+                data_der = dataset.list_datasets[i].copy()
+                list_data_der.append(data_der)
     LU = dataset.spacecraft_parameters.constants.LU
 
     # Get beta
@@ -249,35 +260,38 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, plot_CL,
     N = len(data_Sigma[0,:])
     bound = np.sqrt(chi2.ppf(1-beta, d - 2))
     if plot_CL: # Closed loop
-        for i in range(N):
-            # Get projected cov
-            quad[0,0] = data_Sigma[axis_0 + d*axis_0, i]
-            quad[1,1] = data_Sigma[axis_1 + d*axis_1, i]
-            quad[0,1] = data_Sigma[axis_0 + d*axis_1, i]
-            quad[1, 0] = quad[0,1]
-            center = data_state[:,i]
-            
-            # Denormalise
-            if denormalise:
-                center *= LU
-                quad *= LU*LU
-            
-            # Get eigenvalues
-            eig, eigvectors = np.linalg.eig(quad)
-           
-            # Make ellipse shape
-            Ell = bound*scale*np.array([np.sqrt(eig[0])*np.cos(t) , np.sqrt(eig[1])*np.sin(t)])  
-           	
-            # Rotation
-            R_rot = np.array([eigvectors[0], eigvectors[1]])  
-            Ell_rot = np.zeros((2,Ell.shape[1]))
-            for i in range(Ell.shape[1]):
-                Ell_rot[:,i] = np.dot(R_rot,Ell[:,i])
-           
-            # Plot
-            plt.plot(center[axis_0]+Ell_rot[0,:], center[axis_1]+Ell_rot[1,:],
-                     color=color, linewidth=linewidth, linestyle="dashed", alpha=alpha,
-                     zorder=0)
+        for k in range(nb_GMM):
+            data_Sigma = list_data_Sigma[k]
+            data_state = list_data_state[k]
+            for i in range(N):
+                # Get projected cov
+                quad[0,0] = data_Sigma[axis_0 + d*axis_0, i]
+                quad[1,1] = data_Sigma[axis_1 + d*axis_1, i]
+                quad[0,1] = data_Sigma[axis_0 + d*axis_1, i]
+                quad[1, 0] = quad[0,1]
+                center = data_state[:,i]
+                
+                # Denormalise
+                if denormalise:
+                    center *= LU
+                    quad *= LU*LU
+                
+                # Get eigenvalues
+                eig, eigvectors = np.linalg.eig(quad)
+               
+                # Make ellipse shape
+                Ell = bound*scale*np.array([np.sqrt(eig[0])*np.cos(t) , np.sqrt(eig[1])*np.sin(t)])  
+               	
+                # Rotation
+                R_rot = np.array([eigvectors[0], eigvectors[1]])  
+                Ell_rot = np.zeros((2,Ell.shape[1]))
+                for i in range(Ell.shape[1]):
+                    Ell_rot[:,i] = np.dot(R_rot,Ell[:,i])
+               
+                # Plot
+                plt.plot(center[axis_0]+Ell_rot[0,:], center[axis_1]+Ell_rot[1,:],
+                         color=color, linewidth=linewidth, linestyle="dashed", alpha=alpha,
+                         zorder=0)
     else: # Open loop
         for i in range(0,N):
             if i == 0:
@@ -346,11 +360,12 @@ def plot_2d(dataset, dataset_sample=Dataset()):
         ellipse_scale = 1e4
     elif "lyapunov" in dataset.file_name:
         ellipse_scale = 5e5
+    ellipse_scale = 1
     
     # Thrust
     thrust_color = "#e63946"
     thurst_alpha = 0.8
-    show_thrust = True
+    show_thrust = False
     
     # System points
     if dataset.dynamical_system.startswith("CR3BP"):
@@ -396,29 +411,34 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = False
+    show_plot = True
 
-    # Get data
-    nb_dataets = len(dataset.list_dataset_names)
-    for i in range(nb_dataets):
-        if (dataset.list_dataset_names[i][0] == "Nominal state"):
-            data_state = dataset.list_datasets[i].copy()
-            list_names_state = dataset.list_dataset_names[i].copy()
+    # Retreive data
+    nb_datasets = len(dataset.list_dataset_names)
+    max_trust = dataset.spacecraft_parameters.thrust
+
+    # Retrieve GMM size
+    nb_GMM = int((nb_datasets - 2)/6)
+    list_data_state = []
+    for k in range(nb_GMM):
+        for i in range(nb_datasets):
+            if (dataset.list_dataset_names[i][0] == "Nominal state GMM " + str(k)):
+                data_state = dataset.list_datasets[i].copy()
+                list_names_state = dataset.list_dataset_names[i].copy()
+                list_data_state.append(data_state)
 
     for axies in list_axis:
         axis_0 = axies[0]
         axis_1 = axies[1]
-        coord_0 = data_state[axis_0,:]
-        coord_1 = data_state[axis_1,:]
 
         # Get sample
         sample_size = min(max_sample_size, int(len(dataset_sample.list_dataset_names)/4))
         coord_0_sample = []
         coord_1_sample = []
         if sample_size != 0:
-            nb_datadets = len(dataset_sample.list_dataset_names)
+            nb_datasets = len(dataset_sample.list_dataset_names)
             for i in range(0, sample_size):
-                for j in range(nb_datadets):
+                for j in range(nb_datasets):
                     if (dataset_sample.list_dataset_names[j][0] == "Sample state " + str(i)):
                         data_control_sample = dataset_sample.list_datasets[j].copy()
                 coord_0_sample.append(data_control_sample[axis_0,:])
@@ -427,8 +447,9 @@ def plot_2d(dataset, dataset_sample=Dataset()):
         # Normalisation
         if denormalise:
             LU = dataset.spacecraft_parameters.constants.LU
-            coord_0 *= LU
-            coord_1 *= LU
+            for k in range(nb_GMM):
+                list_data_state[k][axis_0,:] *= LU
+                list_data_state[k][axis_1,:] *= LU
 
             # Sample
             if sample_size != 0:
@@ -442,6 +463,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
             list_names_state[axis_1 + 1] = list_names_state[axis_1 + 1].replace(
                 "LU", "km")
 
+        """ Interpolation TO DO
         if interpolation:
             t_old = np.linspace(0, 1, len(coord_0))  
             t_new = np.linspace(0, 1, interpolation_rate*len(coord_0))  
@@ -456,6 +478,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
 
             coord_0 = interpolate.interp1d(t_old, coord_0, kind='cubic')(t_new)
             coord_1 = interpolate.interp1d(t_old, coord_1, kind='cubic')(t_new)
+        """
 
         # Create plot
         fig = plt.figure(dpi=dpi)
@@ -475,11 +498,11 @@ def plot_2d(dataset, dataset_sample=Dataset()):
                     color=color_sample,
                     zorder=1)
         
-        # Plot state dispersion
+        # Plot state dispersion TO DO
         plot_state_distribution(dataset, axis_0, axis_1, ax,
             plot_CL, ellipse_scale, ellipse_alpha,
             ellipse_color, ellipse_linewidth, denormalise)
-        
+
         # Plot reference orbits
         plot_reference_orbits(dataset, axis_0, axis_1, ax,
                               list_colors_reference,
@@ -505,12 +528,13 @@ def plot_2d(dataset, dataset_sample=Dataset()):
                                ax, thurst_alpha, thrust_color,
                                denormalise)
         
-        # Plot trajectory
-        ax.plot(coord_0, coord_1,
-                color=color_trajectory,
-                label='Trajectory',
-                zorder=11,
-                linewidth=linewidth_trajectory)
+        # Plot trajectory TO DO
+        for k in range(nb_GMM):
+            ax.plot(list_data_state[k][axis_0,:], list_data_state[k][axis_1,:],
+                    color=color_trajectory,
+                    label='Trajectory',
+                    zorder=11,
+                    linewidth=linewidth_trajectory)
 
         # Layout
         fig.tight_layout(pad=0.2)

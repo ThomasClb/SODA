@@ -53,26 +53,33 @@ def plot_stairs_profile(dt, u, ax, label, color,
 """
 def plot_control_distribution(dataset, ax, scale, color_line, denormalise):
     # Retreive data
-    nb_dataets = len(dataset.list_dataset_names)
-    for i in range(nb_dataets):
-        if (dataset.list_dataset_names[i][0] == "Sigma"):
-            data_Sigma = dataset.list_datasets[i].copy()
-        elif (dataset.list_dataset_names[i][0] == "Nominal control"):
-            data_control = dataset.list_datasets[i].copy()
-        elif (dataset.list_dataset_names[i][0] == "Nominal state"):
-            data_state = dataset.list_datasets[i].copy()
-        elif (dataset.list_dataset_names[i][0] == "Feedback gain"):
-            data_gains = dataset.list_datasets[i].copy()
-    ux = data_control[0,:]
-    uy = data_control[1,:]
-    uz = data_control[2,:]
-    dt = data_state[7,:-1]
-    u = np.sqrt(ux*ux + uy*uy + uz*uz)
-    u_down = 0 + u
-    u_up = 0 + u
-    max_trust = dataset.spacecraft_parameters.thrust
-    x_label = "Time [TU]"
-    y_label = "Thrust norm [THRUSTU]"
+    nb_datasets = len(dataset.list_dataset_names)
+
+    # Retrieve GMM size
+    nb_GMM = int((nb_datasets - 2)/6)
+    list_u = []
+    list_u_down = []
+    list_u_up = []
+    for k in range(nb_GMM):
+        for i in range(nb_datasets):
+            if (dataset.list_dataset_names[i][0] == "Sigma GMM " + str(k)):
+                data_Sigma = dataset.list_datasets[i].copy()
+            elif (dataset.list_dataset_names[i][0] == "Nominal control GMM " + str(k)):
+                data_control = dataset.list_datasets[i].copy()
+            elif (dataset.list_dataset_names[i][0] == "Nominal state GMM " + str(k)):
+                data_state = dataset.list_datasets[i].copy()
+            elif (dataset.list_dataset_names[i][0] == "Feedback gain GMM " + str(k)):
+                data_gains = dataset.list_datasets[i].copy()
+        ux = data_control[0,:]
+        uy = data_control[1,:]
+        uz = data_control[2,:]
+        dt = data_state[7,:-1]
+        u = np.sqrt(ux*ux + uy*uy + uz*uz)
+        u_down = 0 + u
+        u_up = 0 + u
+        list_u.append(u)
+        list_u_down.append(u_down)
+        list_u_up.append(u_up)
 
     # Get beta
     list_file_name = dataset.file_name.split("_")
@@ -85,44 +92,39 @@ def plot_control_distribution(dataset, ax, scale, color_line, denormalise):
     if denormalise:
         THRUSTU = dataset.spacecraft_parameters.constants.THRUSTU
         TU = dataset.spacecraft_parameters.constants.TU
-        ux *= THRUSTU
-        uy *= THRUSTU
-        uz *= THRUSTU
-        u *= THRUSTU
-        max_trust *= THRUSTU
         dt *= (TU/86400)
-        
-        # Labels
-        x_label = x_label.replace("TU", "days")
-        y_label = y_label.replace("THRUSTU", "N")
+        for k in range(nb_GMM):
+            list_u[k] *= THRUSTU
         
     # Compute confidence intervals
     
     # Get Sigma
-    for i in range(len(u)):
-        K = data_gains[:,i].reshape((3,8))
-        Sigma_x = data_Sigma[:,i].reshape((8,8))
-        A = np.array([ux[i], uy[i], uz[i]]).T@K
-        if u[i] != 0:
-            A = A/u[i]
-        Sigma = A@Sigma_x@A.T
-        
-        # Normalisation
-        if denormalise:
-            Sigma *= THRUSTU*THRUSTU
-        
-        # Scale
-        bound = scale*np.sqrt(Sigma*chi2.ppf(1-beta, 2)) # First order transcription.
-        u_up[i] = u[i] + bound
-        u_down[i] = u[i] - bound    
+    for k in range(nb_GMM):
+        for i in range(len(u)):
+            K = data_gains[:,i].reshape((3,8))
+            Sigma_x = data_Sigma[:,i].reshape((8,8))
+            A = np.array([ux[i], uy[i], uz[i]]).T@K
+            if u[i] != 0:
+                A = A/u[i]
+            Sigma = A@Sigma_x@A.T
+            
+            # Normalisation
+            if denormalise:
+                Sigma *= THRUSTU*THRUSTU
+            
+            # Scale
+            bound = scale*np.sqrt(Sigma*chi2.ppf(1-beta, 2)) # First order transcription.
+            list_u_up[k][i] = list_u[k][i] + bound
+            list_u_down[k][i] = list_u[k][i] - bound    
         
     # Plot CI.
-    t, u_stairs_up = make_stairs(dt, u_up)
-    t, u_stairs_down = make_stairs(dt, u_down)
-    ax.plot(t, u_stairs_up, label="Test",
-            color=color_line, linestyle="dashed")
-    ax.plot(t, u_stairs_down, label="Test",
-            color=color_line, linestyle="dashed")
+    for k in range(nb_GMM):
+        t, u_stairs_up = make_stairs(dt, list_u_up[k])
+        t, u_stairs_down = make_stairs(dt, list_u_down[k])
+        ax.plot(t, u_stairs_up, label="Test",
+                color=color_line, linestyle="dashed")
+        ax.plot(t, u_stairs_down, label="Test",
+                color=color_line, linestyle="dashed")
 
 """
     Plots a thrust pofile for a given transfer dataset.
@@ -150,7 +152,7 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     linewidth_thrust_robust = 0.8
     label_thrust_robust  = "Margins"
     if "mars" in dataset.file_name:
-        scale_thrust_robust = 200
+        scale_thrust_robust = 200/200
     elif "halo" in dataset.file_name:
         scale_thrust_robust = 2000
     elif "nrho" in dataset.file_name:
@@ -172,34 +174,37 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     # Legend
     show_legend = False
     legend_loc = "lower right"
+    x_label = "Time [TU]"
+    y_label = "Thrust norm [THRUSTU]"
 
     # Output
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = False
+    show_plot = True
     
     # Retreive data
     nb_datadets = len(dataset.list_dataset_names)
-    for i in range(nb_datadets):
-        if (dataset.list_dataset_names[i][0] == "Nominal state"):
-            data_state = dataset.list_datasets[i].copy()
-        elif (dataset.list_dataset_names[i][0] == "Nominal control"):
-            data_control = dataset.list_datasets[i].copy()
-    ux = data_control[0,:]
-    uy = data_control[1,:]
-    uz = data_control[2,:]
-    dt = data_state[7,:-1]
-    u = np.sqrt(ux*ux + uy*uy + uz*uz)
     max_trust = dataset.spacecraft_parameters.thrust
-    x_label = "Time [TU]"
-    y_label = "Thrust norm [THRUSTU]"
 
+    # Retrieve GMM size
+    nb_GMM = int((nb_datadets - 2)/6)
+    list_u = []
+    for k in range(nb_GMM):
+        for i in range(nb_datadets):
+            if (dataset.list_dataset_names[i][0] == "Nominal state GMM " + str(k)):
+                data_state = dataset.list_datasets[i].copy()
+            elif (dataset.list_dataset_names[i][0] == "Nominal control GMM " + str(k)):
+                data_control = dataset.list_datasets[i].copy()
+        ux = data_control[0,:]
+        uy = data_control[1,:]
+        uz = data_control[2,:]
+        dt = data_state[7,:-1]
+        u = np.sqrt(ux*ux + uy*uy + uz*uz)
+        list_u.append(u)
+    
     # Get sample
     sample_size = min(max_sample_size, int(len(dataset_sample.list_dataset_names)/4))
-    ux_sample = []
-    uy_sample = []
-    uz_sample = []
     u_sample = []
     if sample_size != 0:
         nb_datadets = len(dataset_sample.list_dataset_names)
@@ -207,9 +212,6 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
             for j in range(nb_datadets):
                 if (dataset_sample.list_dataset_names[j][0] == "Sample control " + str(i)):
                     data_control_sample = dataset_sample.list_datasets[j].copy()
-            ux_sample.append(data_control_sample[0,:])
-            uy_sample.append(data_control_sample[1,:])
-            uz_sample.append(data_control_sample[2,:])
             u_sample.append(
                 np.sqrt(data_control_sample[0,:]*data_control_sample[0,:]
                     + data_control_sample[1,:]*data_control_sample[1,:]
@@ -219,10 +221,8 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     if denormalise:
         THRUSTU = dataset.spacecraft_parameters.constants.THRUSTU
         TU = dataset.spacecraft_parameters.constants.TU
-        ux *= THRUSTU
-        uy *= THRUSTU
-        uz *= THRUSTU
-        u *= THRUSTU
+        for k in range(nb_GMM):
+            list_u[k] *= THRUSTU
         max_trust *= THRUSTU
         dt *= (TU/86400)
 
@@ -230,9 +230,6 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
         if sample_size != 0:
             for i in range(sample_size):
                 u_sample[i] = THRUSTU*u_sample[i]
-                ux_sample[i] = THRUSTU*ux_sample[i]
-                uy_sample[i] = THRUSTU*uy_sample[i]
-                uz_sample[i] = THRUSTU*uz_sample[i]
         
         # Labels
         x_label = x_label.replace("TU", "days")
@@ -251,9 +248,19 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     plt.ylim((0 - 0.05*max_trust, 1.05*max_trust))
     
     # Plot sample
+
+    """ Scale TO DO
     if sample_size != 0:
         for i in range(sample_size):
             t, u_stairs = make_stairs(dt, u + scale_thrust_robust*(u_sample[i] - u))
+            ax.plot(t, u_stairs, linewidth=sample_linewidth,
+                alpha=sample_alpha,
+                color=sample_color)
+    """
+
+    if sample_size != 0:
+        for i in range(sample_size):
+            t, u_stairs = make_stairs(dt, u_sample[i])
             ax.plot(t, u_stairs, linewidth=sample_linewidth,
                 alpha=sample_alpha,
                 color=sample_color)
@@ -263,10 +270,11 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
                               scale_thrust_robust, color_thrust_robust, denormalise)
 
     # Plot Thrust
-    t, u_stairs = make_stairs(dt, u)
-    ax.plot(t, u_stairs, label=label_thrust_norm,
-        linewidth=linewidth_thrust_norm,
-        color=color_thrust_norm)
+    for k in range(nb_GMM):
+        t, u_stairs = make_stairs(dt, list_u[k])
+        ax.plot(t, u_stairs, label=label_thrust_norm,
+            linewidth=linewidth_thrust_norm,
+            color=color_thrust_norm)
        
     # Plot max thrust
     t, u_stairs = make_stairs(dt, u*0 + max_trust)

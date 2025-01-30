@@ -17,14 +17,14 @@ using namespace std::chrono;
 // Constructors
 SODA::SODA() : 
 		solver_parameters_(), dynamics_(), spacecraft_parameters_(),
-		list_x_(), list_u_(), list_trajectory_split_(),
+		list_trajectory_split_(),
 		AULsolver_(), PNsolver_() {}
 SODA::SODA(
 	SolverParameters const& solver_parameters,
 	SpacecraftParameters const& spacecraft_parameters,
 	Dynamics const& dynamics) :
 		solver_parameters_(solver_parameters), dynamics_(dynamics), spacecraft_parameters_(spacecraft_parameters),
-		list_x_(), list_u_(), list_trajectory_split_(),
+		list_trajectory_split_(),
 		PNsolver_(), AULsolver_(solver_parameters, spacecraft_parameters, dynamics) {}
 
 // Copy constructor
@@ -32,7 +32,6 @@ SODA::SODA(
 	SODA const& solver) : 
 		solver_parameters_(solver.solver_parameters_), dynamics_(solver.dynamics_),
 		spacecraft_parameters_(solver.spacecraft_parameters_),  list_trajectory_split_(solver.list_trajectory_split_),
-		list_x_(solver.list_x_), list_u_(solver.list_u_),
 		AULsolver_(solver.AULsolver_), PNsolver_(solver.PNsolver_) {}
 
 // Destructors
@@ -41,8 +40,6 @@ SODA::~SODA() {}
 // Getters
 const AULSolver SODA::AULsolver() const { return AULsolver_; }
 const PNSolver SODA::PNsolver() const { return PNsolver_; }
-const vector<statedb> SODA::list_x() const { return list_x_; }
-const vector<controldb> SODA::list_u() const { return list_u_; }
 const deque<TrajectorySplit> SODA::list_trajectory_split() const { return list_trajectory_split_; }
 const double SODA::cost() const { return PNsolver_.cost(); }
 const double SODA::violation() const { return PNsolver_.violation(); }
@@ -127,11 +124,6 @@ void SODA::solve(
 		loop = (counter < homotopy_sequence.size() && fuel_optimal) || (counter < 2 && robust_solving);
 	}
 
-	// Retrieve results
-	// TO DO change
-	list_x_ = list_trajectory_split_.front().list_x(); 
-	list_u_ = list_trajectory_split_.front().list_u();
-
 	// PN TO DO
 	auto start_inter = high_resolution_clock::now();
 	PNsolver_ = PNSolver(AULsolver_);
@@ -142,9 +134,7 @@ void SODA::solve(
 		AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - transcription_beta)));
 
 		// Solve
-		PNsolver_.solve(x_goal);
-		list_x_ = PNsolver_.list_x(); // TO DO remove
-		list_u_ = PNsolver_.list_u(); // TO DO remove
+		PNsolver_.solve(&list_trajectory_split_, x_goal);
 		PN_n_iter_ = PNsolver_.n_iter();
 	}
 	auto stop = high_resolution_clock::now();

@@ -101,8 +101,6 @@ if __name__ == "__main__":
 
     # Astrodynamics test cases.
     else:   
-        plot_hypervolume(dataset_robust) # Ellipsoïd volume.
-        plot_nli(dataset_robust) # Nonlinearity index. See https://doi.org/10.2514/1.G007271
         plot_thrust_profile(dataset_robust, dataset_sample)
         for i in list_2d:
             if i in file_name_robust:

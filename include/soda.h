@@ -32,7 +32,7 @@
 #include "aul_solver.h"
 #include "pn_solver.h"
 #include "loads.h"
-
+#include "robust_trajectory.h"
 
 class SODA {
 
@@ -44,8 +44,6 @@ protected:
 	Dynamics dynamics_;
 	PNSolver PNsolver_; // Projected Newton solver
 	std::deque<TrajectorySplit> list_trajectory_split_;
-	std::vector<statedb> list_x_;
-	std::vector<controldb> list_u_;
 
 	// Iterations
 	double PN_runtime_; // Runtime of PN
@@ -80,8 +78,6 @@ public:
 	// No unit test.
 	const AULSolver AULsolver() const;
 	const PNSolver PNsolver() const;
-	const std::vector<statedb> list_x() const;
-	const std::vector<controldb> list_u() const;
 	const std::deque<TrajectorySplit> list_trajectory_split() const;
 	const double cost() const;
 	const double violation() const;

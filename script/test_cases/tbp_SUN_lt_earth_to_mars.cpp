@@ -138,7 +138,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Uncertainties
 	double position_error = 10/lu; double velocity_error = 0.1/vu;
-	position_error = 1e-6; velocity_error = 5e-7; // 1e-6, 5e-6
+	position_error = 5e-5; velocity_error = 1e-5; // 1e-6, 5e-6
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error,
 		velocity_error, velocity_error, velocity_error,
@@ -187,28 +187,37 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	// Compute or load trajectory
 	string file_name = "./data/robust_trajectory/tbp_SUN_lt_earth_to_mars";
 	string system_name = "TBP SUN CARTESIAN LT";
-	pair<vector<statedb>, vector<controldb>> robust_trajectory;
 	bool load_trajectory=false;
+
+	/*
+	RobustTrajectory robust_trajectory;
 	if (load_trajectory) {
+		
 		robust_trajectory = load_robust_trajectory(
 			file_name, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
+		
 	} else {
 		solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
-		robust_trajectory = pair<vector<statedb>, vector<controldb>>(solver.list_x(), solver.list_u());
+		robust_trajectory = RobustTrajectory(solver.list_trajectory_split());
+	}
+	*/
+	solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
+	RobustTrajectory robust_trajectory = solver.list_trajectory_split();
+
+	vector<pair<double, size_t>> test = robust_trajectory.get_mahalanobis_distance(x0.nominal_state());
+	for (size_t i=0; i<test.size(); i++) {
+		cout << test[i].first << ", " << test[i].second << endl;
 	}
 
-	// Unpack
-	vector<statedb> list_x(robust_trajectory.first);
-	vector<controldb> list_u(robust_trajectory.second);
-	
+
 	// Print datasets
 	if (save_results && !load_trajectory) {
 		string file_name = "./data/robust_trajectory/tbp_SUN_lt_earth_to_mars";
 		string system_name = "TBP SUN CARTESIAN LT";
 		print_robust_trajectory_dataset(
 			file_name, system_name,
-			solver.list_trajectory_split(),
+			robust_trajectory,
 			x_departure, x_arrival, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
 	}
@@ -216,9 +225,10 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	// Monte-Carlo validation
 	bool monte_carlo_validaiton = true;
 	if (monte_carlo_validaiton) {
-		size_t size_sample=1000;
+		size_t size_sample=10000;
 		vector<vector<matrixdb>> sample = test_trajectory(
-			list_x, list_u, x_goal, size_sample,
+			robust_trajectory,
+			x0, x_goal, size_sample,
 			solver,	atoi(argv[1]), robust_solving, solver_parameters,
 			solver.AULsolver().DDPsolver().spacecraft_parameters(),
 			solver.AULsolver().DDPsolver().dynamics(),

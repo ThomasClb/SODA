@@ -162,20 +162,18 @@ void double_integrator(int argc, char** argv) {
 	// Compute or load trajectory
 	string file_name = "./data/robust_trajectory/double_integrator";
 	string system_name = "DOUBLE INTEGRATOR";
-	pair<vector<statedb>, vector<controldb>> robust_trajectory;
+	deque<TrajectorySplit> list_trajectory_split;
 	bool load_trajectory=false;
 	if (load_trajectory) {
-		robust_trajectory = load_robust_trajectory(
+		/*
+		list_trajectory_split = load_robust_trajectory(
 			file_name, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
+		*/
 	} else {
 		solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
-		robust_trajectory = pair<vector<statedb>, vector<controldb>>(solver.list_x(), solver.list_u());
+		list_trajectory_split = solver.list_trajectory_split();
 	}
-
-	// Unpack
-	vector<statedb> list_x(robust_trajectory.first);
-	vector<controldb> list_u(robust_trajectory.second);
 	
 	// Print datasets
 	if (save_results && !load_trajectory) {
@@ -183,7 +181,7 @@ void double_integrator(int argc, char** argv) {
 		string system_name = "DOUBLE INTEGRATOR";
 		print_robust_trajectory_dataset(
 			file_name, system_name,
-			solver.list_trajectory_split(),
+			list_trajectory_split,
 			x_departure, x_arrival, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
 	}
@@ -193,7 +191,8 @@ void double_integrator(int argc, char** argv) {
 	if (monte_carlo_validaiton) {
 		size_t size_sample=100000;
 		vector<vector<matrixdb>> sample = test_trajectory(
-			list_x, list_u, x_goal, size_sample,
+			list_trajectory_split,
+			x0, x_goal, size_sample,
 			solver,	atoi(argv[1]), robust_solving, solver_parameters,
 			solver.AULsolver().DDPsolver().spacecraft_parameters(),
 			solver.AULsolver().DDPsolver().dynamics(),
