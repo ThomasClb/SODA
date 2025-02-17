@@ -74,7 +74,7 @@ const double PNSolver::d_th_order_failure_risk() const { return d_th_order_failu
 const vector<vectorDA> PNSolver::list_dynamics_eval() const { return list_dynamics_eval_; }
 const size_t PNSolver::n_iter() const { return n_iter_; }
 
-
+// Store the data of a TrajectorySplit in X_U_.
 void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 	// Unpack
 	DDPSolver ddp_solver = AULsolver_.DDPsolver();
@@ -119,6 +119,7 @@ void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 	}
 }
 
+// Store the data of X_U_ in the correct TrajectorySplit.
 void PNSolver::update_robust_trajectory(
 	deque<TrajectorySplit>* const& p_list_trajectory_split,
 	size_t const& k) {
@@ -197,6 +198,11 @@ void PNSolver::solve(
 		cout << endl << "PN solving" << endl;
 	}
 
+	// Set quantiles
+	double beta_star(solver_parameters_.transcription_beta());
+	AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
+	AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
+
 	// Loop on trajectory splits
 	for (size_t k=0; k<p_list_trajectory_split->size(); k++) {
 		set_list_x_u(p_list_trajectory_split->at(k));
@@ -244,9 +250,7 @@ void PNSolver::solve(
 
 			// Check termination constraints
 			if (violation_ < constraint_tol // If constraints are small
-				|| violation_ == violation_prev // If no progress is made
-				|| (d_th_order_failure_risk_ < solver_parameters_.transcription_beta() 
-					&& continuity_violation < constraint_tol))
+				|| violation_ == violation_prev) // If no progress is made
 				break;
 
 			// Update the constraints using DA
@@ -310,6 +314,15 @@ void PNSolver::solve(
 				<< " - " << 100*d_th_order_failure_risk_  << endl;
 		}
 		update_robust_trajectory(p_list_trajectory_split, k);
+
+		// Update beta_star
+		d_th_order_failure_risk_ = evaluate_risk();
+		double beta_i(min(beta_star, d_th_order_failure_risk_));
+		double gamma_i(beta_star-beta_i);
+		double alpha_i(p_list_trajectory_split->at(k).splitting_history().alpha());
+		//beta_star = beta_star+alpha_i*gamma_i;
+		AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
+		AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 	}
 	return;
 }
@@ -399,33 +412,18 @@ double PNSolver::evaluate_risk() {
 	unsigned int Nu = solver_parameters_.Nu();
 	unsigned int Nineq = solver_parameters_.Nineq();
 	unsigned int Ntineq = solver_parameters_.Ntineq();
+	double PN_tol = solver_parameters_.PN_tol();
 	
 	// Compute diagonal blocks of Sigma
 	double max_beta_d(-1e15);
-	vectordb mean, diag_Sigma;
-
-	// Unpack
-	matrixdb Sigma_x_i = list_Sigma_[0];
-	matrixdb feedback_gain_i = list_feedback_gain_[0];
-	vector<matrixdb> der_constraints = deriv_xu(
-		list_constraints_eval_[0], Nx, Nu, false);
-	matrixdb A_i(der_constraints[0]); matrixdb B_i(der_constraints[1]);
-
-	// Get first matrices
-	matrixdb Delta_i = A_i + B_i*feedback_gain_i;
-	matrixdb R_i = Delta_i*Sigma_x_i*Delta_i.transpose();
-	vectordb constraints_eval = list_constraints_eval_[0].cons();
-	for (size_t j=0; j<constraints_eval.size(); j++) {
-		mean.push_back(constraints_eval[j]);
-		diag_Sigma.push_back(R_i.at(j,j));
-	}
-
-	double beta_d_i = dth_order_risk_estimation(constraints_eval, get_diag_vector_(R_i));
-	if (beta_d_i>max_beta_d)
-			max_beta_d = beta_d_i;
 
 	// Get diag and mean
-	for (size_t i=1; i<N; i++) {
+	vectordb mean, diag_Sigma;
+	matrixdb Sigma_x_i, feedback_gain_i, A_i, B_i, Delta_i, R_i;
+	vector<matrixdb> der_constraints;
+	vectordb constraints_eval;
+	double beta_d_i;
+	for (size_t i=0; i<N; i++) {
 		// Unpack
 		Sigma_x_i = list_Sigma_[i];
 		feedback_gain_i = list_feedback_gain_[i];

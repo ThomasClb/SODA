@@ -252,6 +252,11 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, plot_CL,
     beta = 0.05
     if inv_beta != 0:
         beta = 1/inv_beta
+
+
+
+        
+        
     
     # Plot ellispses
     quad = np.zeros((2,2))

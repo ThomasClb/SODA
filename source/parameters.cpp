@@ -384,6 +384,8 @@ const unsigned int SolverParameters::saving_iterations() const { return saving_i
 // Setters
 void SolverParameters::set_navigation_error_covariance(matrixdb const& navigation_error_covariance) {
 	navigation_error_covariance_ = navigation_error_covariance;}
+void SolverParameters::set_transcription_beta(double const& transcription_beta) {
+	transcription_beta_ = transcription_beta;}
 void SolverParameters::set_path_quantile(double const& path_quantile) {
 	path_quantile_ = path_quantile;}
 void SolverParameters::set_terminal_quantile(double const& terminal_quantile) {

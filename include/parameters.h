@@ -217,6 +217,7 @@ public:
 
 	// Setters
 	void set_navigation_error_covariance(DACE::matrixdb const& navigation_error_covariance);
+	void set_transcription_beta(double const& transcription_beta);
 	void set_path_quantile(double const& path_quantile);
 	void set_terminal_quantile(double const& terminal_quantile);
 	void set_homotopy_coefficient(double const& homotopy_coefficient);

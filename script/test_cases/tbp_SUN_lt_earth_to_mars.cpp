@@ -138,7 +138,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Uncertainties
 	double position_error = 10/lu; double velocity_error = 0.1/vu;
-	position_error = 5e-5; velocity_error = 1e-5; // 1e-6, 5e-6
+	position_error = 1e-5; velocity_error = 1e-5; // 1e-6, 5e-6
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error,
 		velocity_error, velocity_error, velocity_error,
@@ -146,7 +146,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = sqr(1e-4); terminal_velocity_error_sqr = sqr(1e-5);
+	terminal_position_error_sqr = 1e-8; terminal_velocity_error_sqr = 1e-8; 
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
@@ -204,12 +204,6 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	*/
 	solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
 	RobustTrajectory robust_trajectory = solver.list_trajectory_split();
-
-	vector<pair<double, size_t>> test = robust_trajectory.get_mahalanobis_distance(x0.nominal_state());
-	for (size_t i=0; i<test.size(); i++) {
-		cout << test[i].first << ", " << test[i].second << endl;
-	}
-
 
 	// Print datasets
 	if (save_results && !load_trajectory) {

@@ -188,28 +188,18 @@ double AULSolver::evaluate_risk() {
 	unsigned int Nu = solver_parameters.Nu();
 	unsigned int Nineq = solver_parameters.Nineq();
 	unsigned int Ntineq = solver_parameters.Ntineq();
+	double AUL_tol = solver_parameters.AUL_tol();
 	vector<vectorDA> list_constraints_eval(DDPsolver_.list_deterministic_constraints_eval());
 	
 	// Compute diagonal blocks of Sigma
 	double max_beta_d(-1e15);
 
-	// Unpack
-	matrixdb Sigma_x_i = trajectory_split_.list_x()[0].Sigma();
-	matrixdb feedback_gain_i = trajectory_split_.list_u()[0].feedback_gain();
-	vector<matrixdb> der_constraints = deriv_xu(
-		list_constraints_eval[0], Nx, Nu, false);
-	matrixdb A_i(der_constraints[0]); matrixdb B_i(der_constraints[1]);
-
-	// Get first matrices
-	matrixdb Delta_i = A_i + B_i*feedback_gain_i;
-	matrixdb R_i = Delta_i*Sigma_x_i*Delta_i.transpose();
-	vectordb constraints_eval = list_constraints_eval[0].cons();
-	double beta_d_i = dth_order_risk_estimation(constraints_eval, get_diag_vector_(R_i));
-	if (beta_d_i > max_beta_d)
-			max_beta_d = beta_d_i;
-
 	// Get diag and mean
-	for (size_t i=1; i<N; i++) {
+	matrixdb Sigma_x_i, feedback_gain_i, A_i, B_i, Delta_i, R_i;
+	vector<matrixdb> der_constraints;
+	vectordb constraints_eval;
+	double beta_d_i;
+	for (size_t i=0; i<N; i++) {
 		// Unpack
 		Sigma_x_i = trajectory_split_.list_x()[i].Sigma();
 		feedback_gain_i = trajectory_split_.list_u()[i].feedback_gain();
@@ -218,10 +208,10 @@ double AULSolver::evaluate_risk() {
 		A_i = der_constraints[0]; B_i = der_constraints[1];
 		Delta_i = A_i + B_i*feedback_gain_i;
 		R_i = Delta_i*Sigma_x_i*Delta_i.transpose();
-		constraints_eval = list_constraints_eval[i].cons();
+		constraints_eval = list_constraints_eval[i].cons() - AUL_tol/100;
 		beta_d_i = dth_order_risk_estimation(constraints_eval, get_diag_vector_(R_i));
 		if (beta_d_i > max_beta_d)
-				max_beta_d = beta_d_i;
+			max_beta_d = beta_d_i;
 	}
 
 	// Unpack
@@ -230,11 +220,11 @@ double AULSolver::evaluate_risk() {
 			list_constraints_eval[N], Nx, false);
 	A_i = der_constraints[0];
 	R_i = A_i*Sigma_x_i*A_i.transpose();
-	constraints_eval = list_constraints_eval[N].cons();
+	constraints_eval = list_constraints_eval[N].cons() - AUL_tol/100;
 	beta_d_i = dth_order_risk_estimation(constraints_eval, get_diag_vector_(R_i));
 	if (beta_d_i>max_beta_d)
 		max_beta_d = beta_d_i;
-	
+
 	// Return
 	return max_beta_d;
 }
@@ -287,7 +277,12 @@ void AULSolver::solve(
 		cout << "	ITERATION [-], DDP ITERATIONS [-], RUNTIME [s], FINAL MASS [kg], MAX CONSTRAINT [-], Dth-ORDER RISK [%], NLI [-]" << endl;
 	}
 
-	// TO DO init Robust Trajectory
+	// Set quantiles
+	double beta_star(solver_parameters.transcription_beta());
+	this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
+	this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
+
+	// Init Robust Trajectory
 	deque<TrajectorySplit> list_trajectory_split;
 
 	// Iterate until the list is empty.
@@ -296,6 +291,11 @@ void AULSolver::solve(
 		// Get trajectory
 		trajectory_split_ = p_list_trajectory_split->front();
 		p_list_trajectory_split->pop_front();
+
+		// Ouput
+		cout << "Tackling split: " << trajectory_split_.splitting_history();
+		cout << "Alpha: " << trajectory_split_.splitting_history().alpha() << endl;
+		cout << "Beta_star: " << beta_star << endl;
 
 		// Init lists dual state and penalty factors lists.
 		double lambda_0 = lambda_parameters[0];
@@ -322,8 +322,10 @@ void AULSolver::solve(
 		AUL_n_iter_ = 0;
 		violation_ = cost;
 		d_th_order_failure_risk_ = 1.0;
-		double LOADS_tol = 4e-3; // TO DO remove make tol LOADS attribute of solver params
-		unsigned int max_depth = 2; // TO DO remove make tol LOADS attribute of solver params
+		double LOADS_tol = 1e-3; // TO DO remove make tol LOADS attribute of solver params
+		unsigned int max_depth = 3; // TO DO remove make tol LOADS attribute of solver params
+		double max_depth_p = 0.7;
+		// max_depth_p = 2.0;
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
 			
 			// Make the trajectory split sufficiently linear
@@ -335,12 +337,12 @@ void AULSolver::solve(
 				while (loop_nli) { 
 
 					// If an addistional split si possible
-					if (trajectory_split_.splitting_history().size() < max_depth) {
+					if (trajectory_split_.splitting_history().alpha() > max_depth_p) {
 						// Compute NLI
 						max_nli = 0;
 						vectordb list_nli = nl_index(
 					    	trajectory_split_.list_dynamics_eval(), trajectory_split_.list_x(),
-					    	trajectory_split_.list_u(), transcription_beta);
+					    	trajectory_split_.list_u(), beta_star);
 						for (size_t i=0; i<list_nli.size(); i++) {
 							if (list_nli[i] > LOADS_tol) {
 								if (trajectory_split_.splitting_history().size() < max_depth) 
@@ -353,7 +355,7 @@ void AULSolver::solve(
 								cout << "	" << list_nli[i] << endl;
 
 								// Find dir split
-								unsigned int dir(trajectory_split_.find_splitting_direction(i, transcription_beta));
+								unsigned int dir(trajectory_split_.find_splitting_direction(i, beta_star));
 								cout << "	dir: " << dir << endl;
 
 								// Split trajecectory_split_ at dir of vector 0
@@ -372,9 +374,6 @@ void AULSolver::solve(
 						splitted = false;
 					}
 					loop_nli = splitted;
-					cout << "OUT" << endl;
-					cout << "	NLI: " << max_nli << endl;
-					cout << "	COV0 norm: " << frobenius_norm_(trajectory_split_.list_x()[0].Sigma()) << endl;
 				}
 			}
 
@@ -400,7 +399,7 @@ void AULSolver::solve(
 			if (abs((max_constraint_new - violation_)/ violation_) < AUL_tol) {
 				DDPsolver_.set_recompute_dynamics(false);
 
-				if (max_constraint_new - violation_ ==0) {
+				if (max_constraint_new - violation_ == 0) {
 					vector<controldb> list_u(N);
 					for (size_t j=0; j<trajectory_split_.list_u().size(); j++) {
 						controldb u_j = trajectory_split_.list_u()[j];
@@ -440,7 +439,10 @@ void AULSolver::solve(
 			bool merge=false;
 			SplittingHistory history(trajectory_split_.splitting_history());
 			if (history.size() != 0) {
-				if (history.back().second == 0) {
+				bool check_merge(history.back().second == 0);
+				while (check_merge) {
+					check_merge = false;
+
 					// Check for -1 and 1 in p_list_trajectory_split
 					int index_m1(-1), index_p1(-1);
 					for (size_t i=0; i<p_list_trajectory_split->size(); i++) {
@@ -456,15 +458,13 @@ void AULSolver::solve(
 
 						// If the splits are found
 						if (index_m1 != -1 && index_p1 != -1) {
-							cout << "FOUND" << endl;
-
 							// Check inflated NLI (/SIGMA_TILDE^2)
 							TrajectorySplit trajectory_split_merge(trajectory_split_);
 							trajectory_split_merge.merge(
 								history.back().first, solver_parameters.navigation_error_covariance());
 							vectordb list_nli = nl_index(
 							    trajectory_split_merge.list_dynamics_eval(), trajectory_split_merge.list_x(),
-							    trajectory_split_merge.list_u(), transcription_beta);
+							    trajectory_split_merge.list_u(), beta_star);
 							merge = true;
 							for (size_t i=0; i<list_nli.size(); i++) {
 								if (list_nli[i] > LOADS_tol) {
@@ -477,8 +477,10 @@ void AULSolver::solve(
 							if (merge) {
 								// Assign and remove -1 and 1 from p_list_trajectory_split
 								trajectory_split_ = trajectory_split_merge;
+								history = trajectory_split_.splitting_history();
 								p_list_trajectory_split->erase(p_list_trajectory_split->begin() + max(index_m1, index_p1));
 								p_list_trajectory_split->erase(p_list_trajectory_split->begin() + min(index_m1, index_p1));
+								check_merge = history.back().second == 0;
 
 								cout << "merge" << endl;
 								cout << "	COV0 norm: " << frobenius_norm_(trajectory_split_.list_x()[0].Sigma()) << endl;
@@ -499,8 +501,14 @@ void AULSolver::solve(
 			DDP_n_iter_ += DDPsolver_.n_iter(); AUL_n_iter_++;
 		}
 		list_trajectory_split.push_back(trajectory_split_);
-		cout << trajectory_split_.splitting_history() << endl;
-		cout << trajectory_split_.splitting_history().alpha() << endl;
+
+		// Update beta_star
+		double beta_i(min(beta_star, d_th_order_failure_risk_));
+		double gamma_i(beta_star-beta_i);
+		double alpha_i(trajectory_split_.splitting_history().alpha());
+		beta_star = beta_star + alpha_i*gamma_i;
+		this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
+		this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 	}
 	*p_list_trajectory_split = list_trajectory_split;
 

@@ -87,8 +87,10 @@ public:
 	const std::vector<DACE::vectorDA> list_dynamics_eval() const;
 	const std::size_t n_iter() const;
 
+	// Store the data of a TrajectorySplit in X_U_.
 	void set_list_x_u(TrajectorySplit const& trajectory_split);
 
+	// Store the data of X_U_ in the correct TrajectorySplit.
 	void update_robust_trajectory(
 		std::deque<TrajectorySplit>* const& p_list_trajectory_split,
 		std::size_t const& k);

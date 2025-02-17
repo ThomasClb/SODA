@@ -80,10 +80,6 @@ void SODA::solve(
 	matrixdb navigation_error_covariance = solver_parameters_.navigation_error_covariance();
 	AULsolver_.set_navigation_error_covariance(0*navigation_error_covariance);
 
-	// Set quantiles
-	AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - transcription_beta)));
-	AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - transcription_beta)));
-
 	// Init robust_trajectory
 	TrajectorySplit trajectory_split_init(vector<statedb>(1, x0), list_u_init, SplittingHistory());
 
@@ -124,15 +120,11 @@ void SODA::solve(
 		loop = (counter < homotopy_sequence.size() && fuel_optimal) || (counter < 2 && robust_solving);
 	}
 
-	// PN TO DO
+	// PN
 	auto start_inter = high_resolution_clock::now();
 	PNsolver_ = PNSolver(AULsolver_);
 	PN_n_iter_ = 0;
-	if (pn_solving && AULsolver_.d_th_order_failure_risk() >= transcription_beta) {
-		// Set quantiles
-		AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - transcription_beta)));
-		AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - transcription_beta)));
-
+	if (pn_solving) {
 		// Solve
 		PNsolver_.solve(&list_trajectory_split_, x_goal);
 		PN_n_iter_ = PNsolver_.n_iter();
