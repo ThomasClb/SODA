@@ -504,7 +504,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     ellipse_levels = np.array([1e-240, 1e-180, 1e-120, 1e-60, 1])
     plot_CL = True
     if "mars" in dataset.file_name:
-        ellipse_scale = 20
+        ellipse_scale = 15
     elif "halo" in dataset.file_name:
         ellipse_scale = 3e5
     elif "nrho" in dataset.file_name:

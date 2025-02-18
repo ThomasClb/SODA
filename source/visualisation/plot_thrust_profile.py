@@ -151,7 +151,7 @@ def plot_sample(dataset, dataset_sample, ax, max_sample_size,
             u_mean = list_control[index]
 
             # Scale
-            control_sample[i] = u_mean + (u - u_mean)*scale**2.5
+            control_sample[i] = u_mean + (u - u_mean)*scale**2
 
     # Sample
     if sample_size != 0:
@@ -159,14 +159,14 @@ def plot_sample(dataset, dataset_sample, ax, max_sample_size,
             t, u_stairs = make_stairs(dt, control_sample[i])
             ax.plot(t, u_stairs,
                     color=color, linewidth=linewidth,
-                    alpha=transparancy, zorder=10)
+                    alpha=transparancy, zorder=1)
 
 
 """
     Plots a thrust pofile for a given transfer dataset.
 
 """
-def plot_pdf_thrust_profile(dataset, dataset_sample=Dataset()):
+def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     # Settings
     dpi = 200
     
@@ -222,7 +222,7 @@ def plot_pdf_thrust_profile(dataset, dataset_sample=Dataset()):
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = True
+    show_plot = False
     
     # Retreive data
     nb_datadets = len(dataset.list_dataset_names)
@@ -354,7 +354,7 @@ def plot_pdf_thrust_profile(dataset, dataset_sample=Dataset()):
         origin="lower",
         alpha=alpha_thrust_robust,
         extent=[0, (N-1)*dt[0], x[0], x[-1]],
-        cmap=cmap, zorder=1)
+        cmap=cmap, zorder=10)
        
     # Plot max thrust
     t, u_stairs = make_stairs(dt, u*0 + max_trust)
@@ -363,8 +363,7 @@ def plot_pdf_thrust_profile(dataset, dataset_sample=Dataset()):
             alpha=alpha_thrust_max)
     
     cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("Normalized trust norm PDF [-]")
-
+    cbar.set_label("Normalized thrust norm PDF [-]")
 
     # Layout
     fig.tight_layout(pad=0.2)
