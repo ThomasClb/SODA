@@ -320,7 +320,7 @@ void PNSolver::solve(
 		double beta_i(min(beta_star, d_th_order_failure_risk_));
 		double gamma_i(beta_star-beta_i);
 		double alpha_i(p_list_trajectory_split->at(k).splitting_history().alpha());
-		//beta_star = beta_star+alpha_i*gamma_i;
+		beta_star = beta_star+alpha_i*gamma_i;
 		AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 		AULsolver_.set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 	}

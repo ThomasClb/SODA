@@ -85,7 +85,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 
 void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	// Input check
-	if (argc < 11) {
+	if (argc < 13) {
 		cout << "Wrong number of arguments." << endl;
 		cout << "Requested number : 9" << endl;
 		cout << "0 - Test case number." << endl;
@@ -98,7 +98,9 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 		cout << "7 - Perform fuel-optimal optimisation [0/1]." << endl;
 		cout << "8 - Perform projected Newton solving [0/1]." << endl;
 		cout << "9 - Save results [0/1]." << endl;
-		cout << "10 - Verbosity [0-2]." << endl;
+		cout << "10 - Load trajectory [0/1]." << endl;
+		cout << "11 - MC sample  size [-]." << endl;
+		cout << "12 - Verbosity [0-2]." << endl;
 		return;
 	}
 
@@ -112,12 +114,15 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	bool fuel_optimal = false;
 	bool pn_solving = false;
 	bool save_results = false;
-	int verbosity = atoi(argv[11]);
+	bool load_trajectory = false;
+	unsigned int size_sample = atoi(argv[12]);
+	int verbosity = atoi(argv[13]);
 	if (atoi(argv[6]) == 1) { robust_solving = true; }
 	if (atoi(argv[8]) == 1) { fuel_optimal = true; }
 	if (atoi(argv[9]) == 1) { pn_solving = true; }
 	if (atoi(argv[10]) == 1) { save_results = true; }
-	
+	if (atoi(argv[11]) == 1) { load_trajectory = true; }
+
 	// Set double precision
 	typedef std::numeric_limits<double> dbl;
 	cout.precision(5);
@@ -187,12 +192,8 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	// Compute or load trajectory
 	string file_name = "./data/robust_trajectory/tbp_SUN_lt_earth_to_mars";
 	string system_name = "TBP SUN CARTESIAN LT";
-	bool load_trajectory=false;
-
-	/*
 	RobustTrajectory robust_trajectory;
 	if (load_trajectory) {
-		
 		robust_trajectory = load_robust_trajectory(
 			file_name, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
@@ -201,10 +202,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 		solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
 		robust_trajectory = RobustTrajectory(solver.list_trajectory_split());
 	}
-	*/
-	solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
-	RobustTrajectory robust_trajectory = solver.list_trajectory_split();
-
+	
 	// Print datasets
 	if (save_results && !load_trajectory) {
 		string file_name = "./data/robust_trajectory/tbp_SUN_lt_earth_to_mars";
@@ -214,12 +212,10 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 			robust_trajectory,
 			x_departure, x_arrival, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
-	}
+	}	
 
 	// Monte-Carlo validation
-	bool monte_carlo_validaiton = true;
-	if (monte_carlo_validaiton) {
-		size_t size_sample=10000;
+	if (size_sample > 0) {
 		vector<vector<matrixdb>> sample = test_trajectory(
 			robust_trajectory,
 			x0, x_goal, size_sample,
@@ -227,7 +223,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 			solver.AULsolver().DDPsolver().spacecraft_parameters(),
 			solver.AULsolver().DDPsolver().dynamics(),
 			500);
-		
+
 		// Print datasets
 		if (save_results) {
 			string file_name = "./data/sample_trajectory/tbp_SUN_lt_earth_to_mars";

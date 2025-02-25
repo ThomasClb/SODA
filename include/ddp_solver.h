@@ -148,7 +148,7 @@ public:
 	// No unit test.
 	statedb make_state(
 		unsigned int const& Nx, unsigned int const& Nu,
-		DACE::vectorDA const& x_k_DA, statedb const& x_km1, controldb const& u_km1);
+		DACE::vectorDA const& x_k_DA, statedb const& x_km1, controldb const& u_km1) const;
 
 	// Performs the DDP backward sweep, that consists in the computation
 	// of the gains corrections.

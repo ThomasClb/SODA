@@ -76,13 +76,55 @@ unsigned int TrajectorySplit::find_splitting_direction(
     return dir;
 }
 
-// Split a TrajectorySplit into 3 along a given direction.
-pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
-    unsigned int const& dir, matrixdb const& navigation_error_covariance) {
+TrajectorySplit TrajectorySplit::get_splited_trajectory(
+    vectordb const& modified_x0, matrixdb const& modified_Sigma,
+    DDPSolver const& DDPsolver) {
     // Init
     size_t N = list_u_.size();
     size_t Nx(list_x_[0].nominal_state().size());
     size_t Nu(list_u_[0].nominal_control().size());
+    TrajectorySplit output(*this);
+    vectordb nominal_state(list_x_[0].nominal_state());
+    vectordb dx(modified_x0 - nominal_state);
+
+    // Change lists
+    output.list_x_[0].set_nominal_state(modified_x0);
+    output.list_x_[0].set_Sigma(modified_Sigma);
+    vectorDA identity(vectorDA::identity(Nx + Nu));
+    for (size_t i=0; i<N; i++) {
+        // Fix u_i
+        vectordb nominal_control(list_u_[i].nominal_control());
+        matrixdb feedback_gain(list_u_[i].feedback_gain());
+        vectordb du((feedback_gain*dx).extract(0, Nu - 1));
+        output.list_u_[i].set_nominal_control(
+            nominal_control + du);
+
+        // Change x_ip1 and dynamics eval
+        vectorDA delta(identity);
+        for (size_t k=0; k<Nx; k++) {
+            delta[k] = delta[k] + dx[k];
+        }
+        for (size_t k=0; k<Nu; k++) {
+            delta[k + Nx] = delta[k + Nx] + du[k];
+        }
+        output.list_dynamics_eval_[i] = output.list_dynamics_eval_[i].eval(delta);
+
+        // der dynamics + Sigma
+        output.list_x_[i + 1] = DDPsolver.make_state(
+                Nx, Nu, output.list_dynamics_eval_[i] , output.list_x_[i], output.list_u_[i]);
+        dx = output.list_x_[i + 1].nominal_state() - list_x_[i + 1].nominal_state();
+    }
+    return output;
+}
+
+// Split a TrajectorySplit into 3 along a given direction.
+pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
+    unsigned int const& dir, DDPSolver const& DDPsolver) {
+    // Init
+    size_t N = list_u_.size();
+    size_t Nx(list_x_[0].nominal_state().size());
+    size_t Nu(list_u_[0].nominal_control().size());
+    matrixdb navigation_error_covariance(DDPsolver.solver_parameters().navigation_error_covariance());
     vector<matrixdb> list_Sigma;
 
     // Get new mean and covariance
@@ -99,7 +141,7 @@ pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
         matrixdb mat_detla_i = der_x_i.submat(0, 0, Nx - 1, Nx - 1)
             + der_x_i.submat(0, Nx, Nx - 1, Nx + Nu -1)*list_u_[i-1].feedback_gain();
         list_x_[i].set_Sigma(
-            mat_detla_i*list_x_[i-1].Sigma()*mat_detla_i.transpose());
+            mat_detla_i*list_x_[i-1].Sigma()*mat_detla_i.transpose() + navigation_error_covariance);
     }
 
     // Splitting history
@@ -108,62 +150,28 @@ pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
     // Side splits
 
     // Init
-    TrajectorySplit trajectory_split_m1(*this);
-    TrajectorySplit trajectory_split_p1(*this);
+    TrajectorySplit trajectory_split_m1(this->get_splited_trajectory(
+        get<1>(gmm_output[0]), get<2>(gmm_output[0]), DDPsolver));
+    TrajectorySplit trajectory_split_p1(this->get_splited_trajectory(
+        get<1>(gmm_output[2]), get<2>(gmm_output[0]), DDPsolver));
 
     // History
     trajectory_split_m1.splitting_history_.back().second = -1;
     trajectory_split_p1.splitting_history_.back().second = 1;
 
-    // Compute initial deflection
-    vectordb nominal_state(trajectory_split_m1.list_x_[0].nominal_state());
-    vectordb dx_m1(get<1>(gmm_output[0]) - nominal_state);
-    vectordb dx_p1(get<1>(gmm_output[2]) - nominal_state);
-
-    // Change lists
-    trajectory_split_m1.list_x_[0].set_nominal_state(get<1>(gmm_output[0]));
-    trajectory_split_p1.list_x_[0].set_nominal_state(get<1>(gmm_output[2]));
-    vectorDA identity(vectorDA::identity(Nx + Nu));
-    for (size_t i=0; i<N; i++) {
-        // Fix u_i
-        vectordb nominal_control(trajectory_split_m1.list_u_[i].nominal_control());
-        matrixdb feedback_gain(trajectory_split_m1.list_u_[i].feedback_gain());
-        vectordb du_m1((feedback_gain*dx_m1).extract(0, Nu - 1));
-        vectordb du_p1((feedback_gain*dx_p1).extract(0, Nu - 1));
-        trajectory_split_m1.list_u_[i].set_nominal_control(
-            nominal_control + du_m1);
-        trajectory_split_p1.list_u_[i].set_nominal_control(
-            nominal_control + du_p1);
-
-        // Change x_ip1 and dynamics eval
-        vectorDA delta_m1(identity), delta_p1(identity);
-        for (size_t k=0; k<Nx; k++) {
-            delta_m1[k] = delta_m1[k] + dx_m1[k];
-            delta_p1[k] = delta_p1[k] + dx_p1[k];
-        }
-        for (size_t k=0; k<Nu; k++) {
-            delta_m1[k + Nx] = delta_m1[k + Nx] + du_m1[k];
-            delta_p1[k + Nx] = delta_p1[k + Nx] + du_p1[k];
-        }
-        trajectory_split_m1.list_dynamics_eval_[i] = this->list_dynamics_eval_[i].eval(delta_m1);
-        trajectory_split_p1.list_dynamics_eval_[i] = this->list_dynamics_eval_[i].eval(delta_p1);
-        nominal_state = trajectory_split_m1.list_x_[i + 1].nominal_state();
-        dx_m1 = trajectory_split_m1.list_dynamics_eval_[i].cons() - nominal_state;
-        dx_p1 = trajectory_split_p1.list_dynamics_eval_[i].cons() - nominal_state;
-        trajectory_split_m1.list_x_[i + 1].set_nominal_state(nominal_state + dx_m1);
-        trajectory_split_p1.list_x_[i + 1].set_nominal_state(nominal_state + dx_p1);
-    }
+   
     return pair<TrajectorySplit,TrajectorySplit>(trajectory_split_m1, trajectory_split_p1);
 }
 
 // Merge 3 TrajectorySplit into 1 along a given direction.
 // The merged split is the central one.
 void TrajectorySplit::merge(
-    unsigned int const& dir, matrixdb const& navigation_error_covariance) {
+    unsigned int const& dir, DDPSolver const& DDPsolver) {
     // Init
     size_t N = list_u_.size();
     size_t Nx(list_x_[0].nominal_state().size());
     size_t Nu(list_u_[0].nominal_control().size());
+    matrixdb navigation_error_covariance(DDPsolver.solver_parameters().navigation_error_covariance());
     vector<matrixdb> list_Sigma;
 
     // Get new mean and covariance
@@ -180,7 +188,7 @@ void TrajectorySplit::merge(
         matrixdb mat_detla_i = der_x_i.submat(0, 0, Nx - 1, Nx - 1)
             + der_x_i.submat(0, Nx, Nx - 1, Nx + Nu -1)*list_u_[i-1].feedback_gain();
         list_x_[i].set_Sigma(
-            mat_detla_i*list_x_[i-1].Sigma()*mat_detla_i.transpose());
+            mat_detla_i*list_x_[i-1].Sigma()*mat_detla_i.transpose() + navigation_error_covariance);
     }
 
     // Splitting history

@@ -347,7 +347,7 @@ double DDPSolver::get_max_constraint_() {
 // Returns a completed state with STM, derivatives, and covariance.
 statedb DDPSolver::make_state(
 	unsigned int const& Nx, unsigned int const& Nu,
-	vectorDA const& x_k_DA, statedb const& x_km1, controldb const& u_km1) {
+	vectorDA const& x_k_DA, statedb const& x_km1, controldb const& u_km1) const {
 	statedb x_k(x_k_DA.cons());
 	
 	// Get STM

@@ -79,6 +79,42 @@ void print_dataset(
 	return;
 }
 
+// Reads a dataset
+matrixdb read_dataset(ifstream& ifs) {
+	// Init
+	string buffer_str;
+	string delimiter(", ");
+
+	// Skip header
+	getline(ifs, buffer_str);
+
+	// Get n_rows, n_cols
+	getline(ifs, buffer_str);
+	vector<string> list_str = split(buffer_str, delimiter);
+	unsigned int n_rows(stoi(list_str[0])), n_cols(stoi(list_str[1]));
+
+	// Skip header
+	getline(ifs, buffer_str);
+
+	// Init
+	matrixdb output(n_rows, n_cols);
+
+	// Get nominal states
+	vectordb row(n_cols);
+	for (size_t i=0; i<n_rows; i++) {
+		// Get string
+		getline(ifs, buffer_str);
+		list_str = split(buffer_str, delimiter);
+
+		// Assign
+		for (size_t j=0; j<n_cols; j++) {
+			row[j] = stod(list_str[j]);
+		}
+		output.setrow(i, row);
+	}
+	return output;
+}
+
 // Function to propagate a vector without control.
 matrixdb get_mat_reference_trajectory(
 	vectordb const& x_0,
@@ -338,8 +374,10 @@ void print_robust_trajectory_dataset(
 		list_title, list_data);
 }
 
+
+
 // Loads a printed robust trajectory from a printed file.
-pair<vector<statedb>, vector<controldb>> load_robust_trajectory(
+RobustTrajectory load_robust_trajectory(
 	string const& file_name,
 	double const& ToF, bool const& robust_solving,
 	Dynamics const& dynamics,
@@ -364,123 +402,95 @@ pair<vector<statedb>, vector<controldb>> load_robust_trajectory(
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())
 		+ ".dat";
-
+	
 	// Open file
 	ifstream ifs(file_name_);
 	string delimiter(", ");
 
 	// Skip preamble
 	string buffer_str;
-	for (size_t i=0; i<14; i++) {getline(ifs, buffer_str);}
+	for (size_t i=0; i<13; i++) {getline(ifs, buffer_str);}
 
-	// Get N, Nx
-	getline(ifs, buffer_str);
-	vector<string> list_str = split(buffer_str, delimiter);
-	unsigned int N(stoi(list_str[0])-1), Nx(stoi(list_str[1]));
+	// Skip reference trajectories
+	matrixdb buff_mat;
+	buff_mat = read_dataset(ifs);
+	buff_mat = read_dataset(ifs);
 
-	// Init
-	vector<statedb> list_x(N+1);
-	vector<controldb> list_u(N);
+	// Read trajecotry split
+	matrixdb buff_der_dynamics;
+	vectordb der_dynamics_vect;
+	deque<TrajectorySplit> list_trajectory_split;
+	TrajectorySplit trajectory_split_buff;
+	vector<matrixdb> list_Sigma_buff;
+	deque<matrixdb> list_inv_covariance;
+	while (ifs >> buffer_str) {
+		// Init
+		SplittingHistory history_buff;
+		vector<statedb> list_state_buff;
+		vector<controldb> list_control_buff;
 
-	// Skip header
-	getline(ifs, buffer_str);
-
-	// Get nominal states
-	statedb x;
-	vectordb nominal_state(Nx);
-	for (size_t i=0; i<N+1; i++) {
-		// Get string
-		getline(ifs, buffer_str);
-		list_str = split(buffer_str, delimiter);
-
-		// Assign
-		for (size_t j=0; j<Nx; j++) {
-			nominal_state[j] = stod(list_str[j]);
+		// Splitting history
+		buff_mat = read_dataset(ifs);
+		for (size_t i=0; i<buff_mat.nrows(); i++) {
+			history_buff.push_back(
+				pair<unsigned int, int>(buff_mat.at(i, 0), buff_mat.at(i, 1)));
 		}
-		x.set_nominal_state(nominal_state);
-		list_x[i] = x;
-	}
-
-	// Skip header
-	getline(ifs, buffer_str);
-
-	// Get Nu
-	getline(ifs, buffer_str);
-	list_str = split(buffer_str, delimiter);
-	unsigned int Nu(stoi(list_str[1])/Nx - Nx);
-
-	// Skip header
-	getline(ifs, buffer_str);
-
-	// Get der dynamics
-	matrixdb der_dynamics(Nx, Nx + Nu), Sigma(Nx, Nx);
-	for (size_t i=0; i<N+1; i++) {
-		// Get string
-		getline(ifs, buffer_str);
-		list_str = split(buffer_str, delimiter);
-
-		// Assign
-		for (size_t j=0; j<Nx*(Nx+Nu); j++) {
-			der_dynamics.at(j/(Nx+Nu),j%(Nx+Nu)) = stod(list_str[j]);
+		trajectory_split_buff.set_splitting_history(history_buff);
+		
+		// Nominal state
+		buff_mat = read_dataset(ifs);
+		for (size_t i=0; i<buff_mat.nrows(); i++) {
+			list_state_buff.emplace_back(buff_mat.getrow(i));
 		}
-		list_x[i].set_der_dynamics(der_dynamics);
-	}
+		size_t N(list_state_buff.size());
+		size_t Nx(list_state_buff[0].nominal_state().size());
+		size_t Nu;
 
-	// Skip 3*header
-	getline(ifs, buffer_str); getline(ifs, buffer_str); getline(ifs, buffer_str);
-
-	// Get Sigma
-	for (size_t i=0; i<N+1; i++) {
-		// Get string
-		getline(ifs, buffer_str);
-		list_str = split(buffer_str, delimiter);
-
-		// Assign
-		for (size_t j=0; j<Nx*Nx; j++) {
-			Sigma.at(j/Nx,j%Nx) = stod(list_str[j]);
+		// Der dynamics
+		buff_mat = read_dataset(ifs);
+		for (size_t i=0; i<buff_mat.nrows(); i++) {
+			der_dynamics_vect = buff_mat.getrow(i);
+			Nu = der_dynamics_vect.size()/Nx - Nx;
+			buff_der_dynamics = matrixdb(Nx, Nx+Nu);
+			for (size_t k=0; k<Nx; k++) {
+				buff_der_dynamics.setrow(k, der_dynamics_vect.extract(k*(Nx + Nu), (k+1)*(Nx + Nu) - 1));
+			}
+			list_state_buff[i].set_der_dynamics(buff_der_dynamics);
 		}
-		list_x[i].set_Sigma(Sigma);
-	}
 
-	// Skip 3*header
-	getline(ifs, buffer_str);
-	getline(ifs, buffer_str);
-	getline(ifs, buffer_str);
-
-	// Get nominal controls
-	controldb u;
-	vectordb nominal_control(Nu);
-	matrixdb feedback_gain(Nu, Nx);
-	for (size_t i=0; i<N; i++) {
-		// Get string
-		getline(ifs, buffer_str);
-		list_str = split(buffer_str, delimiter);
-
-		// Assign
-		for (size_t j=0; j<Nu; j++) {
-			nominal_control[j] = stod(list_str[j]);
+		// Sigma
+		buff_mat = read_dataset(ifs);
+		for (size_t i=0; i<buff_mat.nrows(); i++) {
+			der_dynamics_vect = buff_mat.getrow(i);
+			buff_der_dynamics = matrixdb(Nx, Nx);
+			for (size_t k=0; k<Nx; k++) {
+				buff_der_dynamics.setrow(k, der_dynamics_vect.extract(k*Nx, (k+1)*Nx - 1));
+			}
+			list_state_buff[i].set_Sigma(buff_der_dynamics);
 		}
-		u.set_nominal_control(nominal_control);
-		list_u[i] = u;
-	}
+		trajectory_split_buff.set_list_x(list_state_buff);
 
-	// Skip 3*header
-	getline(ifs, buffer_str); getline(ifs, buffer_str); getline(ifs, buffer_str);
-
-	// Get feedback gains
-	for (size_t i=0; i<N; i++) {
-		// Get string
-		getline(ifs, buffer_str);
-		list_str = split(buffer_str, delimiter);
-
-		// Assign
-		for (size_t j=0; j<Nx*Nu; j++) {
-			feedback_gain.at(j/Nx,j%Nx) = stod(list_str[j]);
+		// Nominal control
+		buff_mat = read_dataset(ifs);
+		for (size_t i=0; i<buff_mat.nrows(); i++) {
+			list_control_buff.emplace_back(buff_mat.getrow(i));
 		}
-		list_u[i].set_feedback_gain(feedback_gain);
+
+		// Feedback gain
+		buff_mat = read_dataset(ifs);
+		for (size_t i=0; i<buff_mat.nrows(); i++) {
+			der_dynamics_vect = buff_mat.getrow(i);
+			buff_der_dynamics = matrixdb(Nu, Nx);
+			for (size_t k=0; k<Nu; k++) {
+				buff_der_dynamics.setrow(k, der_dynamics_vect.extract(k*Nx, (k+1)*Nx - 1));
+			}
+			list_control_buff[i].set_feedback_gain(buff_der_dynamics);
+		}
+		trajectory_split_buff.set_list_u(list_control_buff);
+		list_trajectory_split.push_back(trajectory_split_buff);
 	}
 
 	// Close
 	ifs.close();
-	return pair<vector<statedb>, vector<controldb>>(list_x, list_u);
+	return RobustTrajectory(list_trajectory_split);
 }

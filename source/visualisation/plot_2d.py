@@ -555,7 +555,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = False
+    show_plot = True
 
     # Retreive data
     nb_datasets = len(dataset.list_dataset_names)

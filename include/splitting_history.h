@@ -40,6 +40,9 @@ public:
     // Checks if two splitting histories can be merged.
     const bool can_merge(SplittingHistory const& history) const;
 
+    // Checks if a splitting history is a child of this one.
+    const int is_child(SplittingHistory const& history) const;
+
     // IO operator
     friend std::ostream& operator<<(std::ostream& os, const SplittingHistory& history);
     friend std::istream& operator>>(std::istream& is, SplittingHistory& history);

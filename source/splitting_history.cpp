@@ -54,6 +54,25 @@ const bool SplittingHistory::can_merge(
 	return true;
 }
 
+    // Checks if a splitting history is a child of this one.
+const int SplittingHistory::is_child(
+	SplittingHistory const& history_i) const {
+	int n(this->size());
+	int n_i(history_i.size());
+	SplittingHistory hist;
+	SplittingHistory hist_i;
+
+	for (int i=0; i<min(n_i, n); i++) {
+		// Extract
+		hist.assign(this->begin(), this->begin() + i + 1);
+		hist_i.assign(history_i.begin(), history_i.begin() + i + 1);
+		if (!(hist.can_merge(hist_i))) {
+			return n + n_i - 2*i;
+		}
+	}
+	return n + n_i - 2*min(n_i, n);
+}
+
 // Overload the << operator for output
 ostream& operator<<(ostream& os, const SplittingHistory& history) {
     for (const auto& entry : history) {

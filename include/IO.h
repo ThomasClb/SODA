@@ -17,12 +17,13 @@
 #include <string>
 
 #include <dace/dace_s.h>
+#include "trajectory_split.h"
 #include "parameters.h"
 #include "dynamics.h"
 #include "linalg.h"
 #include "state_t.h"
 #include "control_t.h"
-#include "trajectory_split.h"
+#include "robust_trajectory.h"
 
 // Splits a string into substring.
 std::vector<std::string> split(std::string s, std::string delimiter);
@@ -76,9 +77,7 @@ void print_robust_trajectory_dataset(
 
 // Loads a printed robust trajectory from a printed file.
 // No unit test.
-std::pair<
-	std::vector<statedb>,
-	std::vector<controldb>> load_robust_trajectory(
+RobustTrajectory load_robust_trajectory(
 	std::string const& file_name,
 	double const& ToF, bool const& robust_solving,
 	Dynamics const& dynamics,

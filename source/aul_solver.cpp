@@ -324,7 +324,7 @@ void AULSolver::solve(
 		d_th_order_failure_risk_ = 1.0;
 		double LOADS_tol = 1e-3; // TO DO remove make tol LOADS attribute of solver params
 		unsigned int max_depth = 3; // TO DO remove make tol LOADS attribute of solver params
-		double max_depth_p = 0.7;
+		double max_depth_p = 0.5;
 		// max_depth_p = 2.0;
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
 			
@@ -345,8 +345,8 @@ void AULSolver::solve(
 					    	trajectory_split_.list_u(), beta_star);
 						for (size_t i=0; i<list_nli.size(); i++) {
 							if (list_nli[i] > LOADS_tol) {
-								if (trajectory_split_.splitting_history().size() < max_depth) 
-								max_nli = list_nli[i];
+								if (trajectory_split_.splitting_history().size() < max_depth_p) 
+									max_nli = list_nli[i];
 								splitted = true;
 
 								cout << "split" << endl;
@@ -360,7 +360,7 @@ void AULSolver::solve(
 
 								// Split trajecectory_split_ at dir of vector 0
 								pair<TrajectorySplit, TrajectorySplit> new_traj = trajectory_split_.split(
-									dir, solver_parameters.navigation_error_covariance());
+									dir, DDPsolver_);
 
 								// Add 2 side splits to p_list_trajectory_split
 								p_list_trajectory_split->push_back(new_traj.first);
@@ -461,7 +461,7 @@ void AULSolver::solve(
 							// Check inflated NLI (/SIGMA_TILDE^2)
 							TrajectorySplit trajectory_split_merge(trajectory_split_);
 							trajectory_split_merge.merge(
-								history.back().first, solver_parameters.navigation_error_covariance());
+								history.back().first, DDPsolver_);
 							vectordb list_nli = nl_index(
 							    trajectory_split_merge.list_dynamics_eval(), trajectory_split_merge.list_x(),
 							    trajectory_split_merge.list_u(), beta_star);
@@ -499,6 +499,45 @@ void AULSolver::solve(
 			loop = !force_stop_loop && force_continue_loop;
 			cost = DDPsolver_.cost();
 			DDP_n_iter_ += DDPsolver_.n_iter(); AUL_n_iter_++;
+		}
+
+		// Spread solution to nearby splits.
+		/**/
+		vectordb nominal_state(trajectory_split_.list_x()[0].nominal_state());
+		for (size_t i=0; i<p_list_trajectory_split->size(); i++) {
+			// Unpack
+			vectordb nominal_state_i(p_list_trajectory_split->at(i).list_x()[0].nominal_state());
+
+			// Check if history_i is child of history
+			double distance((nominal_state_i-nominal_state).vnorm());
+
+			// Check if a closer parent has already be optimised in list_trajectory_split
+			bool update_child(true);
+			for (size_t j=0; j<list_trajectory_split.size(); j++) {
+				vectordb nominal_state_j(list_trajectory_split[j].list_x()[0].nominal_state());
+				if ((nominal_state_i-nominal_state).vnorm() <= distance) {
+					update_child = false;
+					break;
+				}
+			}
+
+			// If not, update
+			if (update_child) {
+				SplittingHistory history_i(p_list_trajectory_split->at(i).splitting_history());				
+				p_list_trajectory_split->at(i) = trajectory_split_.get_splited_trajectory(
+	    			p_list_trajectory_split->at(i).list_x()[0].nominal_state(),
+	    			p_list_trajectory_split->at(i).list_x()[0].Sigma(),
+	    			DDPsolver_);
+    			p_list_trajectory_split->at(i).set_splitting_history(history_i);
+    			if (history_i.size() == 1 && history_i[0].second == 1) {
+					for (size_t j=0; j<N; j++) {
+						cout << j << endl;
+						cout << p_list_trajectory_split->at(i).list_u()[j].nominal_control() << endl;
+						cout << trajectory_split_.list_u()[j].nominal_control() << endl;
+					}
+					cout << "----------------------------------------------------------------------------" << endl;
+				}
+			}
 		}
 		list_trajectory_split.push_back(trajectory_split_);
 

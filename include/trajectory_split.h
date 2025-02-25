@@ -20,12 +20,15 @@
 
 #include <dace/dace_s.h>
 
+#include "ddp_solver.h"
 #include "settings.h"
 #include "constants.h"
 #include "state_t.h"
 #include "control_t.h"
 #include "loads.h"
 #include "splitting_history.h"
+
+class DDPSolver;
 
 
 class TrajectorySplit {
@@ -75,14 +78,19 @@ public:
     unsigned int find_splitting_direction(
         std::size_t const& index, double const& transcription_beta);
 
+    // Return an updated splitted trajectory.
+    TrajectorySplit get_splited_trajectory(
+        DACE::vectordb const& modified_x0, DACE::matrixdb const& modified_Sigma,
+        DDPSolver const& DDPsolver);
+
     // Split a TrajectorySplit into 3 along a given direction.
     std::pair<TrajectorySplit,TrajectorySplit> split(
-        unsigned int const& dir, DACE::matrixdb const& navigation_error_covariance);
+        unsigned int const& dir, DDPSolver const& DDPsolver);
 
     // Merge 3 TrajectorySplit into 1 along a given direction.
     // The merged split is the central one.
     void merge(
-        unsigned int const& dir, DACE::matrixdb const& navigation_error_covariance);
+        unsigned int const& dir, DDPSolver const& DDPsolver);
 
 
     // Friend functions for stream operators
