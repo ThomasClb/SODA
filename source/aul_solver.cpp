@@ -21,7 +21,7 @@ AULSolver::AULSolver() : DDPsolver_(DDPSolver()),
 	d_th_order_failure_risk_(1.0),
 	list_ineq_(vector<vectordb>(0)),
 	list_lambda_(vector<vectordb>(0)), list_mu_(vector<vectordb>(0)),
-	AUL_n_iter_(0), DDP_n_iter_(0) {}
+	AUL_n_iter_(0), DDP_n_iter_(0), list_lambda_mu_() {}
 
 AULSolver::AULSolver(
 	SolverParameters const& solver_parameters,
@@ -33,7 +33,7 @@ AULSolver::AULSolver(
 	list_ineq_(vector<vectordb>(0)),
 	list_lambda_(solver_parameters.list_lambda()), list_mu_(solver_parameters.list_mu()),
 	d_th_order_failure_risk_(1.0),
-	AUL_n_iter_(0), DDP_n_iter_(0) {}
+	AUL_n_iter_(0), DDP_n_iter_(0), list_lambda_mu_() {}
 
 // Copy constructor
 AULSolver::AULSolver(
@@ -43,7 +43,8 @@ AULSolver::AULSolver(
 	d_th_order_failure_risk_(solver.d_th_order_failure_risk_),
 	list_ineq_(solver.list_ineq_),
 	list_lambda_(solver.list_lambda_), list_mu_(solver.list_mu_),
-	AUL_n_iter_(solver.AUL_n_iter_), DDP_n_iter_(solver.DDP_n_iter_) {}
+	AUL_n_iter_(solver.AUL_n_iter_), DDP_n_iter_(solver.DDP_n_iter_),
+	list_lambda_mu_(solver.list_lambda_mu_) {}
 
 // Destructors
 AULSolver::~AULSolver() {}
@@ -284,8 +285,11 @@ void AULSolver::solve(
 
 	// Init Robust Trajectory
 	deque<TrajectorySplit> list_trajectory_split;
+	deque<pair<vector<vectordb>,vector<vectordb>>> list_lambda_mu = list_lambda_mu_;
+	list_lambda_mu_.clear();
 
 	// Iterate until the list is empty.
+	bool first_round(true);
 	while (!p_list_trajectory_split->empty()) {
 
 		// Get trajectory
@@ -298,17 +302,26 @@ void AULSolver::solve(
 		cout << "Beta_star: " << beta_star << endl;
 
 		// Init lists dual state and penalty factors lists.
-		double lambda_0 = lambda_parameters[0];
-		double mu_0 = mu_parameters[0];
-		list_lambda_ = vector<vectordb>(); 
-		list_mu_ = vector<vectordb>();
-		list_lambda_.reserve(N + 1); list_mu_.reserve(N + 1);
-		for (size_t i = 0; i < N; i++) {
-			list_lambda_.emplace_back(Nineq, lambda_0);
-			list_mu_.emplace_back(Nineq, mu_0);
+		if (list_lambda_mu.size() == 0 || first_round) { // Init first round
+			double lambda_0 = lambda_parameters[0];
+			double mu_0 = mu_parameters[0];
+			list_lambda_ = vector<vectordb>(); 
+			list_mu_ = vector<vectordb>();
+			list_lambda_.reserve(N + 1); list_mu_.reserve(N + 1);
+			for (size_t i = 0; i < N; i++) {
+				list_lambda_.emplace_back(Nineq, lambda_0);
+				list_mu_.emplace_back(Nineq, mu_0);
+			}
+			list_lambda_.emplace_back(Ntineq, lambda_0);
+			list_mu_.emplace_back(Ntineq, mu_0);
+			if (list_lambda_mu.size() != 0) // Remove the useless first split
+				list_lambda_mu.pop_front();
+		} else { // Use the lambda and mu of the previous optimised trajectory splits
+			list_lambda_ = list_lambda_mu.front().first;
+			list_mu_ = list_lambda_mu.front().second;
+			list_lambda_mu.pop_front();
 		}
-		list_lambda_.emplace_back(Ntineq, lambda_0);
-		list_mu_.emplace_back(Ntineq, mu_0);
+		first_round = false;
 
 		// Set dual state and penalty factors lists.
 		DDPsolver_.set_list_lambda(list_lambda_);
@@ -345,7 +358,7 @@ void AULSolver::solve(
 					    	trajectory_split_.list_u(), beta_star);
 						for (size_t i=0; i<list_nli.size(); i++) {
 							if (list_nli[i] > LOADS_tol) {
-								if (trajectory_split_.splitting_history().size() < max_depth_p) 
+								if (trajectory_split_.splitting_history().size() < max_depth) 
 									max_nli = list_nli[i];
 								splitted = true;
 
@@ -365,6 +378,8 @@ void AULSolver::solve(
 								// Add 2 side splits to p_list_trajectory_split
 								p_list_trajectory_split->push_back(new_traj.first);
 								p_list_trajectory_split->push_back(new_traj.second);
+								list_lambda_mu.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
+								list_lambda_mu.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
 								break;
 							} else if (list_nli[i] > max_nli) {
 								max_nli = list_nli[i];
@@ -396,20 +411,8 @@ void AULSolver::solve(
 
 			// Check constraints and that the solver is not stuck
 			double max_constraint_new = DDPsolver_.get_max_constraint_();
-			if (abs((max_constraint_new - violation_)/ violation_) < AUL_tol) {
+			if (abs((max_constraint_new - violation_)/ violation_) < AUL_tol)
 				DDPsolver_.set_recompute_dynamics(false);
-
-				if (max_constraint_new - violation_ == 0) {
-					vector<controldb> list_u(N);
-					for (size_t j=0; j<trajectory_split_.list_u().size(); j++) {
-						controldb u_j = trajectory_split_.list_u()[j];
-						u_j.set_nominal_control( // Perturbation to avoid staying stuck
-							u_j.nominal_control() - 0*min(violation_, AUL_tol)); 
-						list_u[j] = u_j;
-					}
-					trajectory_split_.set_list_u(list_u);
-				}
-			}
 			else 
 				DDPsolver_.set_recompute_dynamics(true);
 			violation_ = max_constraint_new;
@@ -502,7 +505,6 @@ void AULSolver::solve(
 		}
 
 		// Spread solution to nearby splits.
-		/**/
 		vectordb nominal_state(trajectory_split_.list_x()[0].nominal_state());
 		for (size_t i=0; i<p_list_trajectory_split->size(); i++) {
 			// Unpack
@@ -515,7 +517,7 @@ void AULSolver::solve(
 			bool update_child(true);
 			for (size_t j=0; j<list_trajectory_split.size(); j++) {
 				vectordb nominal_state_j(list_trajectory_split[j].list_x()[0].nominal_state());
-				if ((nominal_state_i-nominal_state).vnorm() <= distance) {
+				if ((nominal_state_j-nominal_state).vnorm() <= distance) {
 					update_child = false;
 					break;
 				}
@@ -527,19 +529,17 @@ void AULSolver::solve(
 				p_list_trajectory_split->at(i) = trajectory_split_.get_splited_trajectory(
 	    			p_list_trajectory_split->at(i).list_x()[0].nominal_state(),
 	    			p_list_trajectory_split->at(i).list_x()[0].Sigma(),
-	    			DDPsolver_);
+	    			DDPsolver_, true);
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
-    			if (history_i.size() == 1 && history_i[0].second == 1) {
-					for (size_t j=0; j<N; j++) {
-						cout << j << endl;
-						cout << p_list_trajectory_split->at(i).list_u()[j].nominal_control() << endl;
-						cout << trajectory_split_.list_u()[j].nominal_control() << endl;
-					}
-					cout << "----------------------------------------------------------------------------" << endl;
-				}
+    			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
+  				for (size_t k=0; k<N+1; k++) {
+  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.05; // perturbation lambda
+  				}
+    			list_lambda_mu[i] = list_lambda_mu_i;
 			}
 		}
 		list_trajectory_split.push_back(trajectory_split_);
+		list_lambda_mu_.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
 
 		// Update beta_star
 		double beta_i(min(beta_star, d_th_order_failure_risk_));

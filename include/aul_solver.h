@@ -37,6 +37,8 @@ protected:
 	DACE::vectordb tineq_; // List of terminal inequality constraints
 	std::vector<DACE::vectordb> list_lambda_; // List of Lagrange multiplicator
 	std::vector<DACE::vectordb> list_mu_; // List of penalty factors
+	std::deque<std::pair<
+		std::vector<DACE::vectordb>,std::vector<DACE::vectordb>>> list_lambda_mu_; // List of penalty factors and Lagrange multiplicator
 
 
 	// Iterations

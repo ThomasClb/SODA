@@ -78,14 +78,16 @@ unsigned int TrajectorySplit::find_splitting_direction(
 
 TrajectorySplit TrajectorySplit::get_splited_trajectory(
     vectordb const& modified_x0, matrixdb const& modified_Sigma,
-    DDPSolver const& DDPsolver) {
+    DDPSolver const& DDPsolver, bool const& perturbation) {
     // Init
     size_t N = list_u_.size();
     size_t Nx(list_x_[0].nominal_state().size());
     size_t Nu(list_u_[0].nominal_control().size());
     TrajectorySplit output(*this);
-    vectordb nominal_state(list_x_[0].nominal_state());
-    vectordb dx(modified_x0 - nominal_state);
+    vectordb dx(modified_x0 - list_x_[0].nominal_state());
+    double factor_perturbation(1.0);
+    if (perturbation)
+        factor_perturbation -= 1e-2;
 
     // Change lists
     output.list_x_[0].set_nominal_state(modified_x0);
@@ -96,22 +98,18 @@ TrajectorySplit TrajectorySplit::get_splited_trajectory(
         vectordb nominal_control(list_u_[i].nominal_control());
         matrixdb feedback_gain(list_u_[i].feedback_gain());
         vectordb du((feedback_gain*dx).extract(0, Nu - 1));
-        output.list_u_[i].set_nominal_control(
-            nominal_control + du);
+        output.list_u_[i].set_nominal_control(nominal_control*factor_perturbation);
 
         // Change x_ip1 and dynamics eval
         vectorDA delta(identity);
-        for (size_t k=0; k<Nx; k++) {
-            delta[k] = delta[k] + dx[k];
-        }
-        for (size_t k=0; k<Nu; k++) {
-            delta[k + Nx] = delta[k + Nx] + du[k];
-        }
+        for (size_t k=0; k<Nx; k++)
+            delta[k] += dx[k];
+        for (size_t k=0; k<Nu; k++)
+            delta[k + Nx] += du[k];
         output.list_dynamics_eval_[i] = output.list_dynamics_eval_[i].eval(delta);
 
         // der dynamics + Sigma
-        output.list_x_[i + 1] = DDPsolver.make_state(
-                Nx, Nu, output.list_dynamics_eval_[i] , output.list_x_[i], output.list_u_[i]);
+        output.list_x_[i + 1] = DDPsolver.make_state(Nx, Nu, output.list_dynamics_eval_[i] , output.list_x_[i], output.list_u_[i]);
         dx = output.list_x_[i + 1].nominal_state() - list_x_[i + 1].nominal_state();
     }
     return output;
@@ -151,9 +149,9 @@ pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
 
     // Init
     TrajectorySplit trajectory_split_m1(this->get_splited_trajectory(
-        get<1>(gmm_output[0]), get<2>(gmm_output[0]), DDPsolver));
+        get<1>(gmm_output[0]), get<2>(gmm_output[0]), DDPsolver, false));
     TrajectorySplit trajectory_split_p1(this->get_splited_trajectory(
-        get<1>(gmm_output[2]), get<2>(gmm_output[0]), DDPsolver));
+        get<1>(gmm_output[2]), get<2>(gmm_output[0]), DDPsolver, false));
 
     // History
     trajectory_split_m1.splitting_history_.back().second = -1;

@@ -81,7 +81,7 @@ public:
     // Return an updated splitted trajectory.
     TrajectorySplit get_splited_trajectory(
         DACE::vectordb const& modified_x0, DACE::matrixdb const& modified_Sigma,
-        DDPSolver const& DDPsolver);
+        DDPSolver const& DDPsolver, bool const& perturbation);
 
     // Split a TrajectorySplit into 3 along a given direction.
     std::pair<TrajectorySplit,TrajectorySplit> split(
