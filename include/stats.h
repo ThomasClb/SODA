@@ -34,9 +34,11 @@ DACE::vectorDA sort_vector(DACE::vectorDA const& list_to_sort); // DA version.
 // Method from [DiDonato and Jarnagin 1949].
 // See: https://apps.dtic.mil/sti/tr/pdf/AD0642495.pdf
 template<typename T> T inc_beta(double const& a, T const& x) {
+	if (cons(x) > 1-EPS) {
+		return 1;
+	}
 	T inc_beta;
-	// d is impair
-	if ((int)(2*a)%2 == 0) {
+	if ((int)(2*a)%2 == 0) { // d is impair
 		unsigned int k = a;
 		T b = 1;
 		T sum_b = b;
@@ -48,9 +50,7 @@ template<typename T> T inc_beta(double const& a, T const& x) {
 		}
 		return 1-sqrt(1-x)*sum_b;
 	}
-
-	// d is pair
-	else if ((int)(2*a)%2 == 1) {
+	else if ((int)(2*a)%2 == 1) { // d is pair
 		unsigned int k = a + 0.5;
 		T d = 2/PI;
 		T sum_d = d;
@@ -126,14 +126,14 @@ double conservatism(double const& beta, double const& beta_r);
 template<typename T> DACE::AlgebraicVector<T>  get_list_distance(
 	DACE::AlgebraicVector<T> const& mean, DACE::AlgebraicVector<T> const& diag_Sigma) {
 	std::size_t d(mean.size());
-	DACE::AlgebraicVector<T> list_distance(d+1);
-	list_distance[0] = 0.0;
+	DACE::AlgebraicVector<T> list_distance(d);
 	for (std::size_t i=0; i<d; i++) {
-
-		if (abs_cons(diag_Sigma[i]) != 0)
-			list_distance[i+1] = -mean[i]/sqrt(diag_Sigma[i]);
+		if (cons(diag_Sigma[i]) > 0)
+			list_distance[i] = -mean[i]/sqrt(diag_Sigma[i]);
+		else if (cons(diag_Sigma[i]) < 0)
+			list_distance[i] = -mean[i]/sqrt(-diag_Sigma[i]);
 		else 
-			list_distance[i+1] = -mean[i]*1e15;
+			list_distance[i] = -mean[i]*1e15;
 	}
 	return list_distance;
 }
@@ -154,9 +154,9 @@ template<typename T> T first_order_risk_estimation(
 	// Get and store list distances.
 	DACE::AlgebraicVector<T> list_distance = get_list_distance(mean, diag_Sigma);
 	list_distance = sort_vector(list_distance);
-	if (abs_cons(list_distance[0]) != 0)
+	if (cons(list_distance[0]) <= 0)
 		return 1;
-	return 1-chi_2_cdf(d, DACE::sqr(list_distance[1]));
+	return 1-chi_2_cdf(d, DACE::sqr(list_distance[0]));
 }
 
 // Computes the d-th order failure risk estimation.
@@ -169,21 +169,20 @@ template<typename T> T dth_order_risk_estimation(
 	double a = (d-1.0)/2.0;
 
 	// Null distribution.
-	if (d==0) {
+	if (d==0)
 		return 0.0;
-	}
 	
 	// Get and store list distances.
 	DACE::AlgebraicVector<T> list_distance = get_list_distance(mean, diag_Sigma);
 	list_distance = sort_vector(list_distance);
-	if (abs_cons(list_distance[0]) != 0) {
-		return 1;
-	}
+	if (cons(list_distance[0]) <= 0)
+		return 1.0;
 
-	// Compute the cdf for each layer..
-	T beta_robust = 1-chi_2_cdf(d, DACE::sqr(list_distance[1]));
-	T layer = 1-beta_robust;
-	for (size_t i=2; i<d+1; i++) {
+	// Compute the cdf for each layer.
+	T beta_robust = 1-chi_2_cdf(d, DACE::sqr(list_distance[0]));
+	T layer = 1 - beta_robust;
+	
+	for (size_t i=1; i<d; i++) {
 		if (abs_cons(layer) > 1-EPS) { // Checks if there is still stuff to compute.
 			break;
 		}
@@ -191,6 +190,7 @@ template<typename T> T dth_order_risk_estimation(
 		T r_i = list_distance[i];
 		T r_im1 = list_distance[i-1];
 		T delta_phi_i = delta_phi(d, DACE::sqr(r_i), DACE::sqr(r_im1)); // Total crown cdf.
+
 		layer += delta_phi_i;
 		if (abs_cons(delta_phi_i) > EPS) { // If it is worth computing...
 			if (abs_cons(beta_robust) != 0) {
@@ -208,7 +208,6 @@ template<typename T> T dth_order_risk_estimation(
 					beta_robust -= delta_phi_i*(1-0.5*sum_sector);
 			}
 		}
-
 	}
 	return beta_robust;
 }

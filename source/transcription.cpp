@@ -13,6 +13,126 @@
 using namespace DACE;
 using namespace std;
 
+
+vectorDA dth_order_path_inequality_transcription( // PN version
+	vectorDA const& constraints_eval,
+	vector<matrixdb> const& list_Sigma, vector<matrixdb> const& list_feedback_gain,
+	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
+	SolverParameters const& solver_parameters) {
+	// Unpack
+	size_t N = solver_parameters.N();
+	size_t Nx = solver_parameters.Nx();
+	size_t Nu = solver_parameters.Nu();
+	size_t Nineq = solver_parameters.Nineq();
+	size_t Ntineq = solver_parameters.Ntineq();
+	double eps(solver_parameters.PN_tol());
+	size_t d = constraints_eval.size();
+	double beta = 1.0 - chi_2_cdf(d, sqr(solver_parameters.path_quantile()));
+
+	// Init
+	vectorDA transcribed_constraints(constraints_eval);
+	vectorDA output(constraints_eval);
+	vectorDA sigma(d);
+	vectorDA norm_vector(d);
+	size_t index_max(0);
+	vector<size_t> list_index_max(N + 1);
+
+	// Loop on all steps
+	for (size_t k=0; k<N; k++) {
+		// Unpack
+		matrixdb Sigma_k(list_Sigma[k]);
+		matrixdb feedback_gain(list_feedback_gain[k]);
+
+		// Evaluate constraints derivatives
+		vector<matrixDA> list_der = deriv_xu_DA(
+			constraints_eval.extract(k*Nineq, (k+1)*Nineq - 1), Nx, Nu, false);
+
+		// Compute the contraints covariance
+		matrixDA D_f = (list_der[0] + list_der[1] * feedback_gain);
+		matrixDA Sigma_kp1 = D_f*Sigma_k*D_f.transpose(); // TO DO optimize
+		for (size_t i=0; i<Nineq; i++) {
+			if (Sigma_kp1.at(i,i).cons() != 0.0)
+				norm_vector[k*Nineq + i] = Sigma_kp1.at(i,i);
+		}
+	}
+
+	// Terminal constraints
+
+	// Unpack
+	matrixdb Sigma_k(list_Sigma[N]);
+
+	// Evaluate constraints derivatives
+	vector<matrixDA> list_der = deriv_x_DA(
+		constraints_eval.extract(N*Nineq, N*Nineq + Ntineq - 1), Nx, false);
+
+	// Compute the contraints covariance
+	matrixDA D_f = list_der[0];
+	matrixDA Sigma = D_f*Sigma_k*D_f.transpose(); // TO DO optimize
+	double max_y(0);
+	for (size_t i=0; i<Ntineq; i++) {
+		if (Sigma.at(i,i).cons() != 0.0)
+			norm_vector[N*Nineq + i] = Sigma.at(i,i);
+	}
+
+	// Build output vector
+	for (size_t k=0; k<N; k++) {
+		// Extract
+		vectorDA constraints_eval_k = constraints_eval;
+		vectorDA norm_vector_k = norm_vector;
+
+		// Remove terms from other steps
+		for (size_t i=0; i < N*Nineq + Ntineq; i++) {
+			if (i < k*Nineq || i >= (k+1)*Nineq) {
+				constraints_eval_k[i] = constraints_eval_k[i].cons();
+				norm_vector_k[i] = norm_vector_k[i].cons();
+			}
+		}
+
+		// Get beta_d
+		DA dth_order_k = dth_order_risk_estimation(
+			constraints_eval_k, norm_vector_k);
+		DA dth_m1(1.0 - dth_order_k/beta), dth_p1(1.0 + dth_order_k/beta); 
+		for (size_t i=k*Nineq; i<(k+1)*Nineq; i++) {
+			double cons_part(output[i].cons());
+			if (cons_part >= eps)
+				output[i] *= 1 + dth_order_k/beta;
+			else if (cons_part <= -eps)
+				output[i] *= 1 - dth_order_k/beta;
+			else 
+				output[i] += 2*eps;
+		}
+	}
+
+	// Extract
+	vectorDA constraints_eval_k = constraints_eval;
+	vectorDA norm_vector_k = norm_vector;
+
+	// Remove terms from other steps
+	for (size_t i=0; i<N*Nineq; i++) {
+		constraints_eval_k[i] = constraints_eval_k[i].cons();
+		norm_vector_k[i] = norm_vector_k[i].cons();
+	}
+
+	// Get beta_d
+	DA dth_order_k = dth_order_risk_estimation(
+		constraints_eval_k, norm_vector_k);
+	DA dth_m1(1-dth_order_k/beta), dth_p1(1+dth_order_k/beta); 
+
+	//cout << dth_order_k << endl;
+
+	for (size_t i=N*Nineq; i<N*Nineq + Ntineq; i++) {
+		double cons_part(output[i].cons());
+		if (cons_part >= eps)
+			output[i] *= 1 + dth_order_k/beta;
+		else if (cons_part <= -eps)
+			output[i] *= 1 - dth_order_k/beta;
+		else 
+			output[i] += 2*eps;
+	}
+	cout << output.cons() << endl;
+	return output;
+}
+
 // First order method.
 // DOI: WIP
 // Path constraints.
@@ -81,6 +201,70 @@ vectorDA first_order_path_inequality_transcription(
 	vectorDA transcribed_constraints = constraints_eval + solver_parameters.path_quantile()*norm_vector;
 	return transcribed_constraints;
 }
+
+
+
+vectorDA first_order_path_inequality_transcription( // PN version
+	vectorDA const& constraints_eval,
+	vector<matrixdb> const& list_Sigma, vector<matrixdb> const& list_feedback_gain,
+	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
+	SolverParameters const& solver_parameters) {
+	// Unpack
+	size_t N = solver_parameters.N();
+	size_t Nx = solver_parameters.Nx();
+	size_t Nu = solver_parameters.Nu();
+	size_t Nineq = solver_parameters.Nineq();
+	size_t Ntineq = solver_parameters.Ntineq();
+	size_t d = constraints_eval.size();
+
+	// Init
+	vectorDA transcribed_constraints(constraints_eval);
+	vectorDA sigma(d);
+	vectorDA norm_vector(d);
+
+	// Loop on all steps
+	for (size_t k=0; k<N; k++) {
+		// Unpack
+		matrixdb Sigma_k(list_Sigma[k]);
+		matrixdb feedback_gain(list_feedback_gain[k]);
+
+		// Evaluate constraints derivatives
+		vector<matrixDA> list_der = deriv_xu_DA(
+			constraints_eval.extract(k*Nineq, (k+1)*Nineq - 1), Nx, Nu, false);
+
+		// Compute the contraints covariance
+		matrixDA D_f = (list_der[0] + list_der[1] * feedback_gain);
+		matrixDA Sigma_kp1 = D_f*Sigma_k*D_f.transpose(); // TO DO optimize
+		for (size_t i=0; i<Nineq; i++) {
+			if (Sigma_kp1.at(i,i).cons() != 0.0) {
+				norm_vector[k*Nineq + i] = sqrt(Sigma_kp1.at(i,i));
+			}
+		}
+	}
+
+	// Terminal constraints
+
+	// Unpack
+	matrixdb Sigma_k(list_Sigma[N]);
+
+	// Evaluate constraints derivatives
+	vector<matrixDA> list_der = deriv_x_DA(
+		constraints_eval.extract(N*Nineq, N*Nineq + Ntineq - 1), Nx, false);
+
+	// Compute the contraints covariance
+	matrixDA D_f = list_der[0];
+	matrixDA Sigma = D_f*Sigma_k*D_f.transpose(); // TO DO optimize
+	for (size_t i=0; i<Ntineq; i++) {
+		if (Sigma.at(i,i).cons() != 0.0) {
+			norm_vector[N*Nineq + i] = sqrt(Sigma.at(i,i));
+		}
+	}
+
+	// Make final constraints 
+	return transcribed_constraints + solver_parameters.path_quantile()*norm_vector;
+}
+
+
 
 // First order method.
 // DOI: WIP

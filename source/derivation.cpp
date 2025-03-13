@@ -14,6 +14,7 @@
 using namespace DACE;
 using namespace std;
 
+double cons(double const& value) {return value;}
 double abs_cons(double const& value) {return abs(value);}
 double abs_cons(DA const& value) {return abs(value.cons());}
 

@@ -280,6 +280,7 @@ void AULSolver::solve(
 
 	// Set quantiles
 	double beta_star(solver_parameters.transcription_beta());
+	double sum_beta_T(0);
 	this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 	this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 
@@ -299,7 +300,8 @@ void AULSolver::solve(
 		// Ouput
 		cout << "Tackling split: " << trajectory_split_.splitting_history();
 		cout << "Alpha: " << trajectory_split_.splitting_history().alpha() << endl;
-		cout << "Beta_star: " << beta_star << endl;
+		cout << "Beta_star: " << 100*beta_star << endl;
+		cout << "sum Beta_T: " << 100*sum_beta_T << endl;
 
 		// Init lists dual state and penalty factors lists.
 		if (list_lambda_mu.size() == 0 || first_round) { // Init first round
@@ -542,12 +544,17 @@ void AULSolver::solve(
 		list_lambda_mu_.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
 
 		// Update beta_star
-		double beta_i(min(beta_star, d_th_order_failure_risk_));
-		double gamma_i(beta_star-beta_i);
+		double beta_T_i(min(beta_star, d_th_order_failure_risk_));
+		double delta_i(beta_star-beta_T_i);
 		double alpha_i(trajectory_split_.splitting_history().alpha());
-		beta_star = beta_star + alpha_i*gamma_i;
-		this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
-		this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
+		if (p_list_trajectory_split->size() > 0) {
+			
+			double alpha_ip1(p_list_trajectory_split->at(0).splitting_history().alpha());
+			beta_star = solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i;
+			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
+			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
+		}
+		sum_beta_T += beta_T_i*alpha_i;
 	}
 	*p_list_trajectory_split = list_trajectory_split;
 

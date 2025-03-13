@@ -24,6 +24,7 @@
 #include "state_t.h"
 #include "control_t.h"
 
+double cons(double const& value);
 double abs_cons(double const& value);
 double abs_cons(DACE::DA const& value);
 
