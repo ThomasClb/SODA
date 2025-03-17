@@ -27,7 +27,7 @@
 
 
 
-DACE::vectorDA dth_order_path_inequality_transcription( // PN version
+DACE::vectorDA dth_order_inequality_transcription( // PN version
 	DACE::vectorDA const& constraints_eval,
 	std::vector<DACE::matrixdb> const& list_Sigma, std::vector<DACE::matrixdb> const& list_feedback_gain,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,

@@ -34,9 +34,12 @@ DACE::vectorDA sort_vector(DACE::vectorDA const& list_to_sort); // DA version.
 // Method from [DiDonato and Jarnagin 1949].
 // See: https://apps.dtic.mil/sti/tr/pdf/AD0642495.pdf
 template<typename T> T inc_beta(double const& a, T const& x) {
-	if (cons(x) > 1-EPS) {
+	double eps = 1e-30;
+	if (cons(x) > 1-eps)
 		return 1;
-	}
+	else if (cons(x) < eps)
+		return 0;
+
 	T inc_beta;
 	if ((int)(2*a)%2 == 0) { // d is impair
 		unsigned int k = a;
@@ -44,7 +47,7 @@ template<typename T> T inc_beta(double const& a, T const& x) {
 		T sum_b = b;
 		for (size_t i=2; i<k+1; i++) {
 			b *= ((i-1)*2.0-1)/(2.0*(i-1))*x;
-			if (abs_cons(b) < EPS)
+			if (abs_cons(b) < eps)
 				break;
 			sum_b += b;
 		}
@@ -58,7 +61,7 @@ template<typename T> T inc_beta(double const& a, T const& x) {
 			sum_d = 0;
 		for (size_t i=2; i<k; i++) {
 			d *= ((i-1)*2.0)/(2.0*i-1)*x;
-			if (abs_cons(d) < EPS)
+			if (abs_cons(d) < eps)
 				break;
 			sum_d += d;
 		}
@@ -73,35 +76,41 @@ template<typename T> T inc_beta(double const& a, T const& x) {
 // See: https://en.wikipedia.org/wiki/Incomplete_gamma_function#Evaluation_formulae
 template<typename T> T chi_2_cdf(
 	unsigned int const& d, T const& r) {
-	T inc_gamma = 0.0;
+	T inc_gamma;
 
 	// Safeguard
 	if (d == 0)
 		return 0.0;
 
 	// Case disjunction
-	if (d%2==1) {
+	T r_div_2_i = r/2.0;
+	T exp_r = exp(-r_div_2_i);
+	if (d%2 == 1) {
 		unsigned int p = (d-1)/2;
 		
 		// Init inc_gamma(1/2, r/2)
-		inc_gamma = sqrt(PI)*erf(sqrt(r/2.0));
-		T exp_r = exp(-r/2.0);
+		inc_gamma = sqrt(PI)*erf(sqrt(r_div_2_i));
+		T r_div_2_i_pow = sqrt(r_div_2_i)*exp_r;
 
 		// Exact iterative expression
 		for (unsigned int i=0; i<p; i++) {
-			inc_gamma = (i + 0.5)*inc_gamma - pow(r/2.0, i+0.5)*exp_r;
+			inc_gamma = (i + 0.5)*inc_gamma - r_div_2_i_pow;
+			if (i + 1 != p)
+				r_div_2_i_pow *= r_div_2_i;
 		}
 	}
 	else if (d%2==0) { // d is pair
 		unsigned int p = d/2; 
 
 		// Init inc_gamma(1, r/2)
-		T exp_r = exp(-r/2.0);
-		inc_gamma = 1.0-exp_r;
+		inc_gamma = 1.0 - exp_r;
+		r_div_2_i *= exp_r;
 
 		// Exact iterative expression
-		for (int i=1; i<p; i++) {
-			inc_gamma = i*inc_gamma - pow(r/2.0, i)*exp_r;
+		for (unsigned int i=1; i<p; i++) {
+			inc_gamma = i*inc_gamma - r_div_2_i;
+			if (i + 1 != p)
+				r_div_2_i *= r_div_2_i;
 		}
 	}
 
@@ -130,10 +139,8 @@ template<typename T> DACE::AlgebraicVector<T>  get_list_distance(
 	for (std::size_t i=0; i<d; i++) {
 		if (cons(diag_Sigma[i]) > 0)
 			list_distance[i] = -mean[i]/sqrt(diag_Sigma[i]);
-		else if (cons(diag_Sigma[i]) < 0)
-			list_distance[i] = -mean[i]/sqrt(-diag_Sigma[i]);
-		else 
-			list_distance[i] = -mean[i]*1e15;
+		else if (cons(diag_Sigma[i]) == 0)
+			list_distance[i] = -mean[i]*1e30;
 	}
 	return list_distance;
 }
@@ -179,11 +186,11 @@ template<typename T> T dth_order_risk_estimation(
 		return 1.0;
 
 	// Compute the cdf for each layer.
-	T beta_robust = 1-chi_2_cdf(d, DACE::sqr(list_distance[0]));
+	T beta_robust = 1 - chi_2_cdf(d, DACE::sqr(list_distance[0]));
 	T layer = 1 - beta_robust;
 	
 	for (size_t i=1; i<d; i++) {
-		if (abs_cons(layer) > 1-EPS) { // Checks if there is still stuff to compute.
+		if (abs_cons(layer) > 1 - EPS*EPS) { // Checks if there is still stuff to compute.
 			break;
 		}
 
@@ -192,7 +199,7 @@ template<typename T> T dth_order_risk_estimation(
 		T delta_phi_i = delta_phi(d, DACE::sqr(r_i), DACE::sqr(r_im1)); // Total crown cdf.
 
 		layer += delta_phi_i;
-		if (abs_cons(delta_phi_i) > EPS) { // If it is worth computing...
+		if (abs_cons(delta_phi_i) > EPS*EPS) { // If it is worth computing...
 			if (abs_cons(beta_robust) != 0) {
 				T sum_sector = 0;
 				for (size_t j=1; j<i; j++) {

@@ -48,7 +48,6 @@ double inv_chi_2_cdf(unsigned int const& d, double const& p) {
 	double value_min = chi_2_cdf(d, r_min);
 	double value_max = chi_2_cdf(d, r_max);
 	double value = chi_2_cdf(d, r);
-	size_t i=0;
 
 	// Dichotomy loop
 	while (abs(value-p) > EPS) {
@@ -56,7 +55,6 @@ double inv_chi_2_cdf(unsigned int const& d, double const& p) {
 			value_max = value; r_max = r;
 		} else if (value<p) {
 			value_min = value; r_min = r;
-			
 		} else
 			return r;
 
