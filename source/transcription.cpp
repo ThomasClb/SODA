@@ -25,27 +25,33 @@ vectorDA dth_order_inequality_transcription( // PN version
 	size_t Nu = solver_parameters.Nu();
 	size_t Nineq = solver_parameters.Nineq();
 	size_t Ntineq = solver_parameters.Ntineq();
-	double eps(1e-30);
-	size_t d = constraints_eval.size();
-	double beta_star = 1 - chi_2_cdf(N*(Nineq + 1) + Ntineq + 1, sqr(solver_parameters.path_quantile()));
+	double tol = solver_parameters.PN_tol();
+	double eps(EPS);
+	size_t d = N*Nineq + Ntineq;
+	double beta_star(1 - chi_2_cdf(d, sqr(solver_parameters.path_quantile())));
 
 	// Init
 	vectorDA output(constraints_eval);
 	vectorDA norm_vector(d, 0);
+	vectorDA mean(d);
 
 	// Loop on all steps
 	for (size_t k=0; k<N; k++) {
 
 		// Evaluate constraints derivatives
 		vector<matrixDA> list_der = deriv_xu_DA(
-			constraints_eval.extract(k*(Nineq + 1), (k + 1)*(Nineq + 1) - 2), Nx, Nu, false);
+			constraints_eval.extract(
+				k*(Nineq + 0), (k + 1)*(Nineq + 0) - 1), Nx, Nu, false);
 
 		// Compute the contraints covariance
 		matrixDA D_f = (list_der[0] + list_der[1] * list_feedback_gain[k]);
 		matrixDA Sigma = D_f*list_Sigma[k]*D_f.transpose(); // TO DO optimize
+
+		// Assign
 		for (size_t i=0; i<Nineq; i++) {
+			mean[k*Nineq + i] = constraints_eval[k*(Nineq + 0) + i];
 			if (Sigma.at(i,i).cons() > 0)
-				norm_vector[k*(Nineq + 1) + i] = (Sigma.at(i,i));
+				norm_vector[k*Nineq + i] = Sigma.at(i,i);
 		}
 	}
 
@@ -53,74 +59,65 @@ vectorDA dth_order_inequality_transcription( // PN version
 
 	// Evaluate constraints derivatives
 	vector<matrixDA> list_der = deriv_x_DA(
-		constraints_eval.extract(N*(Nineq + 1), N*(Nineq + 1) + Ntineq - 1), Nx, false);
+		constraints_eval.extract(
+			N*(Nineq + 0), N*(Nineq + 0) + (Ntineq + 0) - 1), Nx, false);
 
 	// Compute the contraints covariance
 	matrixDA D_f = list_der[0];
 	matrixDA Sigma = D_f*list_Sigma[N]*D_f.transpose(); // TO DO optimize
+
+	// Assign
 	for (size_t i=0; i<Ntineq; i++) {
+		mean[N*Nineq + i] = constraints_eval[N*(Nineq + 0) + i];
 		if (Sigma.at(i,i).cons() > 0)
-			norm_vector[N*(Nineq + 1) + i] = (Sigma.at(i,i));
+			norm_vector[N*Nineq + i] = Sigma.at(i,i);
 	}
 
 	// Build output vector
+	vectorDA list_beta_d(N+1);
 	for (size_t k=0; k<N; k++) {
 		// Extract
-		vectorDA constraints_eval_k = constraints_eval;
+		vectorDA mean_k = mean;
 		vectorDA norm_vector_k = norm_vector;
 
 		// Remove terms from other steps
-		for (size_t i=0; i < N*(Nineq + 1) + Ntineq + 1; i++) {
-			if (!(i >= k*(Nineq + 1) && i < (k+1)*(Nineq + 1))) {
-				constraints_eval_k[i] = constraints_eval_k[i].cons();
+		for (size_t i=0; i < N*Nineq + Ntineq; i++) {
+			if (!(i >= k*Nineq && i < (k+1)*Nineq)) {
+				mean_k[i] = mean_k[i].cons();
 				norm_vector_k[i] = norm_vector_k[i].cons();
 			}
 		}
 
 		// Get beta_d
-		DA dth_order_k = dth_order_risk_estimation(
-			constraints_eval_k, norm_vector_k);
+		DA beta_d_k = dth_order_risk_estimation(mean_k, norm_vector_k);
+
+		// Assign
 		for (size_t i=0; i<Nineq; i++) {
-			double y_i(output[k*(Nineq + 1) + i].cons());
-			if (y_i >= eps && norm_vector[k*(Nineq + 1) + i].cons() > 0)
-				output[k*(Nineq + 1) + i] += solver_parameters.path_quantile()*sqrt(norm_vector[k*(Nineq + 1) + i]);
-			else if (y_i < eps && y_i > 0)
-				output[k*(Nineq + 1) + i] *= dth_order_k/beta_star + 1;
-			else if (y_i < 0)
-				output[k*(Nineq + 1) + i] *= dth_order_k/beta_star - 1;
-		}
-		if (dth_order_k.cons() != 1)
-			output[k*(Nineq + 1) + Nineq] = dth_order_k - beta_star;
+			if (norm_vector[k*Nineq + i].cons() > 0)
+				output[k*(Nineq + 0) + i] += solver_parameters.path_quantile()*sqrt(norm_vector[k*Nineq + i]);
+		}		
 	}
 
 	// Terminal constraints
 
 	// Extract
-	vectorDA constraints_eval_k = constraints_eval;
+	vectorDA mean_k = mean;
 	vectorDA norm_vector_k = norm_vector;
 
 	// Remove terms from other steps
-	for (size_t i=0; i<N*(Nineq + 1); i++) {
-		constraints_eval_k[i] = constraints_eval_k[i].cons();
+	for (size_t i=0; i<N*Nineq; i++) {
+		mean_k[i] = mean_k[i].cons();
 		norm_vector_k[i] = norm_vector_k[i].cons();
 	}
 
 	// Get beta_d
-	DA dth_order_k = dth_order_risk_estimation(
-		constraints_eval_k, norm_vector_k);
+	DA beta_d_k = dth_order_risk_estimation(mean_k, norm_vector_k);
 
-	for (size_t i=0; i<Ntineq; i++) {
-		double y_i(output[N*(Nineq + 1) + i].cons());
-		if (y_i >= eps && norm_vector[N*(Nineq + 1) + i].cons() > 0)
-			output[N*(Nineq + 1) + i] += solver_parameters.path_quantile()*sqrt(norm_vector[N*(Nineq + 1) + i]);
-		else if (y_i < eps && y_i > 0)
-			output[N*(Nineq + 1) + i] *= dth_order_k/beta_star + 1;
-		else if (y_i < 0)
-			output[N*(Nineq + 1) + i] *= dth_order_k/beta_star - 1;
+	// Assign
+	for (size_t i=0; i<Ntineq; i++) {	
+		if (norm_vector[N*Nineq + i].cons() > 0)
+			output[N*(Nineq + 0) + i] += solver_parameters.path_quantile()*sqrt(norm_vector[N*Nineq + i]);
 	}
-
-	if (dth_order_k.cons() != 1)
-		output[N*(Nineq + 1) + Ntineq] = dth_order_k - beta_star;
 
 	return output;
 }

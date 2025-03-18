@@ -34,10 +34,9 @@ DACE::vectorDA sort_vector(DACE::vectorDA const& list_to_sort); // DA version.
 // Method from [DiDonato and Jarnagin 1949].
 // See: https://apps.dtic.mil/sti/tr/pdf/AD0642495.pdf
 template<typename T> T inc_beta(double const& a, T const& x) {
-	double eps = 1e-30;
-	if (cons(x) > 1-eps)
+	if (cons(x) > 1-EPS)
 		return 1;
-	else if (cons(x) < eps)
+	else if (cons(x) < EPS)
 		return 0;
 
 	T inc_beta;
@@ -47,7 +46,7 @@ template<typename T> T inc_beta(double const& a, T const& x) {
 		T sum_b = b;
 		for (size_t i=2; i<k+1; i++) {
 			b *= ((i-1)*2.0-1)/(2.0*(i-1))*x;
-			if (abs_cons(b) < eps)
+			if (abs_cons(b) < EPS)
 				break;
 			sum_b += b;
 		}
@@ -61,7 +60,7 @@ template<typename T> T inc_beta(double const& a, T const& x) {
 			sum_d = 0;
 		for (size_t i=2; i<k; i++) {
 			d *= ((i-1)*2.0)/(2.0*i-1)*x;
-			if (abs_cons(d) < eps)
+			if (abs_cons(d) < EPS)
 				break;
 			sum_d += d;
 		}
@@ -140,7 +139,7 @@ template<typename T> DACE::AlgebraicVector<T>  get_list_distance(
 		if (cons(diag_Sigma[i]) > 0)
 			list_distance[i] = -mean[i]/sqrt(diag_Sigma[i]);
 		else if (cons(diag_Sigma[i]) == 0)
-			list_distance[i] = -mean[i]*1e30;
+			list_distance[i] = -mean[i]/EPS;
 	}
 	return list_distance;
 }
@@ -187,19 +186,18 @@ template<typename T> T dth_order_risk_estimation(
 
 	// Compute the cdf for each layer.
 	T beta_robust = 1 - chi_2_cdf(d, DACE::sqr(list_distance[0]));
-	T layer = 1 - beta_robust;
+	double layer = std::min(1.0, 1 - cons(beta_robust));
 	
 	for (size_t i=1; i<d; i++) {
-		if (abs_cons(layer) > 1 - EPS*EPS) { // Checks if there is still stuff to compute.
+		if (layer > 1 - EPS)// Checks if there is still stuff to compute.
 			break;
-		}
 
 		T r_i = list_distance[i];
 		T r_im1 = list_distance[i-1];
 		T delta_phi_i = delta_phi(d, DACE::sqr(r_i), DACE::sqr(r_im1)); // Total crown cdf.
 
-		layer += delta_phi_i;
-		if (abs_cons(delta_phi_i) > EPS*EPS) { // If it is worth computing...
+		layer += cons(delta_phi_i);
+		if (abs_cons(delta_phi_i) > EPS) { // If it is worth computing...
 			if (abs_cons(beta_robust) != 0) {
 				T sum_sector = 0;
 				for (size_t j=1; j<i; j++) {
