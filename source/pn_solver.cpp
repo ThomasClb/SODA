@@ -165,6 +165,38 @@ void PNSolver::update_robust_trajectory(
 	p_list_trajectory_split->at(k).set_list_dynamics_eval(list_dynamics_eval_);
 }
 
+double PNSolver::update_path_quantile_(
+	double const& fact_conservatism,
+	double const& beta_star,
+	bool const& init) {
+	// Unpack
+	unsigned int N = solver_parameters_.N();
+	unsigned int Nx = solver_parameters_.Nx();
+	unsigned int Nu = solver_parameters_.Nu();
+	unsigned int Nineq = solver_parameters_.Nineq();
+	unsigned int Ntineq = solver_parameters_.Ntineq();
+
+
+	if (init) {
+		double fact_conservatism_ = 0.1;
+		solver_parameters_.set_path_quantile(
+			fact_conservatism_*sqrt(inv_chi_2_cdf(
+				N*Nineq + Ntineq,
+				1 - beta_star)));
+		return fact_conservatism_;
+	}
+
+	double fact_conservatism_ = min(1.2*fact_conservatism, 1.0);
+	unsigned int constraints_stchastic_dim(N*Nineq + Ntineq);  // TO DO trouver loi
+	solver_parameters_.set_path_quantile(
+		fact_conservatism_*sqrt(inv_chi_2_cdf(
+			constraints_stchastic_dim,
+			1 - beta_star)));
+
+	cout << fact_conservatism_ << ", " << constraints_stchastic_dim << ", " << solver_parameters_.path_quantile() << endl;
+	return fact_conservatism_;
+}
+
 
 // Solves the optimisation problem with a projected Newton method
 // Inspired from ALTRO (Julia).
@@ -178,7 +210,6 @@ void PNSolver::solve(
 	unsigned int Nu = solver_parameters_.Nu();
 	unsigned int Nineq = solver_parameters_.Nineq();
 	unsigned int Ntineq = solver_parameters_.Ntineq();
-	unsigned int constraints_stchastic_dim((N*(Nineq + 0) + Ntineq + 0));
 	size_t max_iter = solver_parameters_.PN_max_iter();
 	double constraint_tol = solver_parameters_.PN_tol();
 	double cv_rate_threshold = solver_parameters_.PN_cv_rate_threshold();
@@ -197,14 +228,17 @@ void PNSolver::solve(
 		cout << endl << "PN solving" << endl;
 	}
 
-	// Set quantiles
+	// Set beta_star
 	double beta_star(solver_parameters_.transcription_beta());
 	double sum_beta_T(0);
-	AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(constraints_stchastic_dim, 1 - beta_star)));
 
 	// Loop on trajectory splits
 	for (size_t k=0; k<p_list_trajectory_split->size(); k++) {
 		set_list_x_u(p_list_trajectory_split->at(k));
+
+		// Set quantiles
+		double fact_conservatism = update_path_quantile_(0, beta_star, true);
+		double factor_beta(1.0);
 
 		// Evaluate constraints
 		update_constraints_(x_goal, false);
@@ -212,7 +246,6 @@ void PNSolver::solve(
 		double continuity_violation = get_max_continuity_constraint_(INEQ_);
 		d_th_order_failure_risk_ = evaluate_risk();
 		
-
 		// Init loop
 		double cv_rate = 1e15;
 		double duration = 0.0;
@@ -233,6 +266,7 @@ void PNSolver::solve(
 					<< " - " << duration_str
 					<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
 					<< " - " << violation_ 
+					<< " - " << continuity_violation 
 					<< " - " << 100*d_th_order_failure_risk_ << endl;
 			} else if (verbosity == 1) {
 				if (i % 5 == 0) {
@@ -244,18 +278,31 @@ void PNSolver::solve(
 						<< " - " << duration_str
 						<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
 						<< " - " << violation_ 
+						<< " - " << continuity_violation 
 						<< " - " << 100*d_th_order_failure_risk_ << endl;
 				}
 			}
 
 			// Check termination constraints
-			if (violation_ < constraint_tol // If constraints are small
-				|| violation_ == violation_prev) // If no progress is made
+			bool converged = (
+				violation_ < constraint_tol && 
+					(fact_conservatism == 1.0 || d_th_order_failure_risk_/factor_beta <= beta_star)) ||
+				(continuity_violation < constraint_tol && d_th_order_failure_risk_/factor_beta <= beta_star);
+			bool update_fact = 
+				violation_ < constraint_tol*100 &&
+				d_th_order_failure_risk_/factor_beta > beta_star &&
+				fact_conservatism < 1.0;
+
+			if (update_fact){
+				fact_conservatism = update_path_quantile_(fact_conservatism, beta_star, false);
+			}
+			else if (converged || violation_ == violation_prev) // If no progress is made
 				break;
 
 			// Update the constraints using DA
-			else if (i != 0) {
+			if (i != 0) {
 				update_constraints_(x_goal, false);
+				violation_ = get_max_constraint_(INEQ_);
 				continuity_violation = get_max_continuity_constraint_(INEQ_);
 				d_th_order_failure_risk_ = evaluate_risk();
 			}
@@ -279,11 +326,17 @@ void PNSolver::solve(
 			violation_prev = violation_;
 			for (size_t j = 0; j < 20; j++) {
 				// Termination checks
-				if (violation_ < constraint_tol || cv_rate < cv_rate_threshold)
+				converged = (
+					violation_ < constraint_tol && 
+						(fact_conservatism == 1.0 || d_th_order_failure_risk_/factor_beta <= beta_star)) ||
+					(continuity_violation < constraint_tol && d_th_order_failure_risk_/factor_beta <= beta_star);
+				if (converged || cv_rate < cv_rate_threshold)
 					break;
 
 				// Line search
 				violation_ = line_search_(x_goal, L, block_D, get<0>(constraints), violation_0);
+				continuity_violation = get_max_continuity_constraint_(INEQ_);
+				d_th_order_failure_risk_ = evaluate_risk();
 
 				// Update cv_rate
 				cv_rate = log(violation_) / log(violation_0);
@@ -301,6 +354,7 @@ void PNSolver::solve(
 				<< " - " << duration_str
 				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
 				<< " - " << violation_ 
+				<< " - " << continuity_violation 
 				<< " - " << 100*d_th_order_failure_risk_ << endl;
 		} else if (verbosity == 1) {
 			stop = high_resolution_clock::now();
@@ -311,6 +365,7 @@ void PNSolver::solve(
 				<< " - " << duration_str
 				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
 				<< " - " << violation_ 
+				<< " - " << continuity_violation 
 				<< " - " << 100*d_th_order_failure_risk_  << endl;
 		}
 		update_robust_trajectory(p_list_trajectory_split, k);
@@ -323,9 +378,8 @@ void PNSolver::solve(
 		if (k+1 < p_list_trajectory_split->size()) {
 			double alpha_kp1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
 			beta_star = solver_parameters_.transcription_beta() + alpha_k/alpha_kp1*delta_k;
-			AULsolver_.set_path_quantile(sqrt(inv_chi_2_cdf(constraints_stchastic_dim, 1 - beta_star)));
 		}
-		sum_beta_T += alpha_k*beta_T_k;
+		sum_beta_T += alpha_k*d_th_order_failure_risk_;
 		cout << "	beta_star : " << 100*beta_star << endl;
 		cout << "	sum beta_T : " << 100*sum_beta_T << endl;
 	}
@@ -460,20 +514,8 @@ double PNSolver::get_max_constraint_(
 
 	// Loop on all steps
 	double maximum = -1e15;
-	for (size_t i = 0; i < N; i++) {
-
-		// Find maximum
-		for (size_t j = 0; j < Nx; j++) {
-			maximum = max(maximum, abs(INEQ[i*(Nineq + 0 + Nx) + j]));
-		}
-		for (size_t j = 0; j < Nineq + 0; j++) {
-			maximum = max(maximum, INEQ[i*(Nineq + 0 + Nx) + Nx + j]);
-		}
-	}
-
-	// Terminal constraints
-	for (size_t j = 0; j < Ntineq + 0; j++) {
-		maximum = max(maximum, INEQ[N*(Nineq + 0 + Nx) + j]);
+	for (size_t i = 0; i < INEQ.size(); i++) {
+		maximum = max(maximum, (INEQ[i]));
 	}
 
 	return maximum;
@@ -491,7 +533,7 @@ double PNSolver::get_max_continuity_constraint_(
 	double maximum = -1e15;
 	for (size_t i = 0; i < N; i++) {
 		for (size_t j = 0; j < Nx; j++) {
-			maximum = max(maximum, abs(INEQ[i*(Nineq + 0 + Nx) + j]));
+			maximum = max(maximum, (INEQ[i*(Nineq + Nx) + j]));
 		}
 	}
 

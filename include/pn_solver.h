@@ -95,6 +95,11 @@ public:
 		std::deque<TrajectorySplit>* const& p_list_trajectory_split,
 		std::size_t const& k);
 
+	double update_path_quantile_(
+		double const& fact_conservatism,
+		double const& beta_star,
+		bool const& init);
+
 	// Solves the optimisation problem with a projected Newton method
 	// Inspired by ALTRO (Julia).
 	// See: https://github.com/RoboticExplorationLab/Altro.jl

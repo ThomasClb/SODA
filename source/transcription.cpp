@@ -28,12 +28,11 @@ vectorDA dth_order_inequality_transcription( // PN version
 	double tol = solver_parameters.PN_tol();
 	double eps(EPS);
 	size_t d = N*Nineq + Ntineq;
-	double beta_star(1 - chi_2_cdf(d, sqr(solver_parameters.path_quantile())));
+	double path = solver_parameters.path_quantile();
 
 	// Init
 	vectorDA output(constraints_eval);
 	vectorDA norm_vector(d, 0);
-	vectorDA mean(d);
 
 	// Loop on all steps
 	for (size_t k=0; k<N; k++) {
@@ -49,9 +48,7 @@ vectorDA dth_order_inequality_transcription( // PN version
 
 		// Assign
 		for (size_t i=0; i<Nineq; i++) {
-			mean[k*Nineq + i] = constraints_eval[k*(Nineq + 0) + i];
-			if (Sigma.at(i,i).cons() > 0)
-				norm_vector[k*Nineq + i] = Sigma.at(i,i);
+			norm_vector[k*Nineq + i] = Sigma.at(i,i);
 		}
 	}
 
@@ -68,55 +65,31 @@ vectorDA dth_order_inequality_transcription( // PN version
 
 	// Assign
 	for (size_t i=0; i<Ntineq; i++) {
-		mean[N*Nineq + i] = constraints_eval[N*(Nineq + 0) + i];
-		if (Sigma.at(i,i).cons() > 0)
-			norm_vector[N*Nineq + i] = Sigma.at(i,i);
+		norm_vector[N*Nineq + i] = Sigma.at(i,i);
 	}
 
 	// Build output vector
 	vectorDA list_beta_d(N+1);
 	for (size_t k=0; k<N; k++) {
-		// Extract
-		vectorDA mean_k = mean;
-		vectorDA norm_vector_k = norm_vector;
-
-		// Remove terms from other steps
-		for (size_t i=0; i < N*Nineq + Ntineq; i++) {
-			if (!(i >= k*Nineq && i < (k+1)*Nineq)) {
-				mean_k[i] = mean_k[i].cons();
-				norm_vector_k[i] = norm_vector_k[i].cons();
-			}
-		}
-
-		// Get beta_d
-		DA beta_d_k = dth_order_risk_estimation(mean_k, norm_vector_k);
-
 		// Assign
 		for (size_t i=0; i<Nineq; i++) {
-			if (norm_vector[k*Nineq + i].cons() > 0)
-				output[k*(Nineq + 0) + i] += solver_parameters.path_quantile()*sqrt(norm_vector[k*Nineq + i]);
-		}		
+			size_t index(k*Nineq + i);
+			if (norm_vector[index].cons() > 0)
+				output[index] += path*sqrt(norm_vector[index]);
+			else if (norm_vector[index].cons() == 0 && output[index].cons() <= 0)
+				output[index] = -1e15;
+		}
 	}
 
 	// Terminal constraints
 
-	// Extract
-	vectorDA mean_k = mean;
-	vectorDA norm_vector_k = norm_vector;
-
-	// Remove terms from other steps
-	for (size_t i=0; i<N*Nineq; i++) {
-		mean_k[i] = mean_k[i].cons();
-		norm_vector_k[i] = norm_vector_k[i].cons();
-	}
-
-	// Get beta_d
-	DA beta_d_k = dth_order_risk_estimation(mean_k, norm_vector_k);
-
 	// Assign
 	for (size_t i=0; i<Ntineq; i++) {	
-		if (norm_vector[N*Nineq + i].cons() > 0)
-			output[N*(Nineq + 0) + i] += solver_parameters.path_quantile()*sqrt(norm_vector[N*Nineq + i]);
+		size_t index(N*Nineq + i);
+		if (norm_vector[index].cons() > 0)
+			output[index] += path*sqrt(norm_vector[index]);
+		else if (norm_vector[index].cons() == 0 && output[index].cons() <= 0)
+				output[index] = -1e15;
 	}
 
 	return output;
@@ -146,9 +119,8 @@ vectorDA first_order_path_inequality_transcription(
 	matrixDA Sigma = D_f*x_DA.Sigma()*D_f.transpose();
 	vectorDA norm_vector(d);
 	for (size_t i=0; i<d; i++) {
-		if (Sigma.at(i,i).cons() != 0.0) {
+		if (Sigma.at(i,i).cons() != 0.0)
 			norm_vector[i] = sqrt(Sigma.at(i,i));
-		}
 	}
 
 	// Make final constraints 
@@ -181,9 +153,8 @@ vectorDA first_order_path_inequality_transcription(
 	matrixDA Sigma_kp1 = D_f*Sigma_k*D_f.transpose();
 	vectorDA norm_vector(d);
 	for (size_t i=0; i<d; i++) {
-		if (Sigma_kp1.at(i,i).cons() != 0.0) {
+		if (Sigma_kp1.at(i,i).cons() != 0.0)
 			norm_vector[i] = sqrt(Sigma_kp1.at(i,i));
-		}
 	}
 
 	// Make final constraints 

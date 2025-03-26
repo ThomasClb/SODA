@@ -197,23 +197,23 @@ template<typename T> T dth_order_risk_estimation(
 		T delta_phi_i = delta_phi(d, DACE::sqr(r_i), DACE::sqr(r_im1)); // Total crown cdf.
 
 		layer += cons(delta_phi_i);
-		if (abs_cons(delta_phi_i) > EPS) { // If it is worth computing...
-			if (abs_cons(beta_robust) != 0) {
+		if (cons(delta_phi_i) > EPS) { // If it is worth computing...
+			if (cons(beta_robust) != 0) {
 				T sum_sector = 0;
 				for (size_t j=1; j<i; j++) {
-					if (abs_cons(sum_sector) >= 2.0) { // The next terms will be useless.
-						sum_sector = 2.0;
+					if (cons(sum_sector) >= 2.0) { // The next terms will be useless.
 						break;
 					}
 					sum_sector += inc_beta(a, 1.0 - DACE::sqr(list_distance[j]/r_i));
 				}
-				if (abs_cons(sum_sector) == 2.0) // The next terms will be useless.
+				if (cons(sum_sector) >= 2.0) // The next terms will be useless.
 					break;
 				else // Improve beta robust
-					beta_robust -= delta_phi_i*(1-0.5*sum_sector);
+					beta_robust -= delta_phi_i*(1.0-0.5*sum_sector);
 			}
 		}
 	}
+
 	return beta_robust;
 }
 
