@@ -13,6 +13,7 @@ import os, sys
 
 from classes import Constants, SpacecraftParameters, Dataset
 from plot_2d import plot_2d
+from plot_2d_pdf import plot_2d_pdf
 from plot_thrust_profile import plot_thrust_profile
 from plot_nli import plot_nli
 from plot_double_integrator import plot_double_integrator_u, plot_double_integrator_x
@@ -105,9 +106,9 @@ if __name__ == "__main__":
 
     # Astrodynamics test cases.
     else:   
-        plot_thrust_profile(dataset_robust, dataset_sample)
+        # plot_thrust_profile(dataset_robust, dataset_sample)
         for i in list_2d:
             if i in file_name_robust:
-                plot_2d(dataset_robust, dataset_sample)
+                plot_2d_pdf(dataset_robust, dataset_sample)
                 break
     

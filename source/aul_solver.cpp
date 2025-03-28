@@ -269,13 +269,12 @@ void AULSolver::solve(
 		// cout << "Intial covariance norm [-] : " << frobenius_norm_(x0.Sigma());
 		cout << endl << endl << endl;
 	}
-	else if (verbosity < 2) {
+	else if (verbosity == 1) {
 		cout << endl;
 		cout << "AUL solving - Homotopy coefficient [0, 1] : " << solver_parameters.homotopy_coefficient() << endl;
 		cout << "            - Huber-loss coefficient [0, 1] : " << solver_parameters.huber_loss_coefficient() << endl;
-		cout << "            - Target failure risk [%] : " << 100*transcription_beta << endl;
-		// cout << "            - Intial covariance norm [-] : " << frobenius_norm_(x0.Sigma()) << endl;
-		cout << "	ITERATION [-], DDP ITERATIONS [-], RUNTIME [s], FINAL MASS [kg], MAX CONSTRAINT [-], Dth-ORDER RISK [%], NLI [-]" << endl;
+		cout << "            - Target failure risk [%] : " << 100*transcription_beta << endl << endl;
+		cout << "SPLIT, α [%], NB SPLIT, β* [%], SUM β T [%], RUNTIME [s], ITER, DDP ITERA, FINAL MASS [kg], MAX CONSTRAINT, β d [%]" << endl;
 	}
 
 	// Set quantiles
@@ -296,12 +295,6 @@ void AULSolver::solve(
 		// Get trajectory
 		trajectory_split_ = p_list_trajectory_split->front();
 		p_list_trajectory_split->pop_front();
-
-		// Ouput
-		cout << "Tackling split: " << trajectory_split_.splitting_history();
-		cout << "Alpha: " << trajectory_split_.splitting_history().alpha() << endl;
-		cout << "Beta_star: " << 100*beta_star << endl;
-		cout << "sum Beta_T: " << 100*sum_beta_T << endl;
 
 		// Init lists dual state and penalty factors lists.
 		if (list_lambda_mu.size() == 0 || first_round) { // Init first round
@@ -328,6 +321,7 @@ void AULSolver::solve(
 		// Set dual state and penalty factors lists.
 		DDPsolver_.set_list_lambda(list_lambda_);
 		DDPsolver_.set_list_mu(list_mu_);
+		DDP_n_iter_ = 0;
 
 		// Init loop variables.
 		bool loop = true;
@@ -337,62 +331,46 @@ void AULSolver::solve(
 		AUL_n_iter_ = 0;
 		violation_ = cost;
 		d_th_order_failure_risk_ = 1.0;
-		double LOADS_tol = 1e-3; // TO DO remove make tol LOADS attribute of solver params
-		unsigned int max_depth = 3; // TO DO remove make tol LOADS attribute of solver params
-		double max_depth_p = 0.5;
-		// max_depth_p = 2.0;
+		double duration_aul_split = 0.0;
+		double LOADS_tol = 2e-3; // TO DO remove make tol LOADS attribute of solver params
+		double max_depth_p = 0.05; // TO DO remove make tol LOADS attribute of solver params
+		int nb_split = 0;
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
 			
 			// Make the trajectory split sufficiently linear
 			if (trajectory_split_.list_dynamics_eval().size() == N) {
 
-				double max_nli; 
 				bool loop_nli(true);
-				bool splitted(false);
-				while (loop_nli) { 
+				while (trajectory_split_.splitting_history().alpha() > max_depth_p && loop_nli) { 
 
-					// If an addistional split si possible
-					if (trajectory_split_.splitting_history().alpha() > max_depth_p) {
-						// Compute NLI
-						max_nli = 0;
-						vectordb list_nli = nl_index(
-					    	trajectory_split_.list_dynamics_eval(), trajectory_split_.list_x(),
-					    	trajectory_split_.list_u(), beta_star);
-						for (size_t i=0; i<list_nli.size(); i++) {
-							if (list_nli[i] > LOADS_tol) {
-								if (trajectory_split_.splitting_history().size() < max_depth) 
-									max_nli = list_nli[i];
-								splitted = true;
+					// Compute NLI
+					vectordb list_nli = nl_index(
+				    	trajectory_split_.list_dynamics_eval(), trajectory_split_.list_x(),
+				    	trajectory_split_.list_u(), beta_star);
+					for (size_t i=0; i<list_nli.size(); i++) {
+						if (list_nli[i] > LOADS_tol) {
+							loop_nli = true;
+							nb_split ++;
 
-								cout << "split" << endl;
-								cout << "	step: " << i << endl;
-								cout << "	COV0 norm: " << frobenius_norm_(trajectory_split_.list_x()[0].Sigma()) << endl;
-								cout << "	" << list_nli[i] << endl;
+							// Find dir split
+							unsigned int dir(trajectory_split_.find_splitting_direction(i, beta_star));
 
-								// Find dir split
-								unsigned int dir(trajectory_split_.find_splitting_direction(i, beta_star));
-								cout << "	dir: " << dir << endl;
+							// Split trajecectory_split_ at dir of vector 0
+							pair<TrajectorySplit, TrajectorySplit> new_traj = trajectory_split_.split(
+								dir, DDPsolver_);
 
-								// Split trajecectory_split_ at dir of vector 0
-								pair<TrajectorySplit, TrajectorySplit> new_traj = trajectory_split_.split(
-									dir, DDPsolver_);
-
-								// Add 2 side splits to p_list_trajectory_split
-								p_list_trajectory_split->push_back(new_traj.first);
-								p_list_trajectory_split->push_back(new_traj.second);
-								list_lambda_mu.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
-								list_lambda_mu.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
-								break;
-							} else if (list_nli[i] > max_nli) {
-								max_nli = list_nli[i];
-								splitted = false;
-							}
+							// Add 2 side splits to p_list_trajectory_split
+							p_list_trajectory_split->push_back(new_traj.first);
+							p_list_trajectory_split->push_back(new_traj.second);
+							list_lambda_mu.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
+							list_lambda_mu.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
+							break;
 						}
-						splitted = false;
+						else
+							loop_nli = false;
 					}
-					loop_nli = splitted;
 				}
-			}
+			} 
 
 			// Solve DDP problem
 			auto start = high_resolution_clock::now();
@@ -400,7 +378,8 @@ void AULSolver::solve(
 				trajectory_split_.list_x()[0], trajectory_split_.list_u(),
 				x_goal, trajectory_split_.list_dynamics_eval());
 			auto stop = high_resolution_clock::now();
-			auto duration_mapping = duration_cast<microseconds>(stop - start);
+			auto duration_ddp = duration_cast<microseconds>(stop - start);
+			duration_aul_split += static_cast<double>(duration_ddp.count()) / 1e6;
 
 			// Store results
 			trajectory_split_.set_list_dynamics_eval(DDPsolver_.list_dynamics_eval());
@@ -418,22 +397,6 @@ void AULSolver::solve(
 			else 
 				DDPsolver_.set_recompute_dynamics(true);
 			violation_ = max_constraint_new;
-
-			// Output
-			if (verbosity < 1) {
-				cout << AUL_n_iter_ << " - RUNTIME [s] : "
-					<< to_string(static_cast<double>(duration_mapping.count()) / 1e6) << ", "
-					<< "FINAL MASS [kg] : " << DDPsolver_.list_x()[N].nominal_state()[SIZE_VECTOR] * constants.massu() << ", "
-					<< "MAX CONSTRAINT [-] : " << violation_ << ", "
-					<< "Dth-ORDER RISK [%] : " << 100*d_th_order_failure_risk_ << endl << endl;
-			}
-			else if (verbosity < 2) {
-				cout << "	" << AUL_n_iter_ << ", " << DDPsolver_.n_iter()
-					<< ", "	<< to_string(static_cast<double>(duration_mapping.count()) / 1e6)
-					<< ", " << DDPsolver_.list_x()[N].nominal_state()[SIZE_VECTOR] * constants.massu()
-					<< ", " << violation_
-					<< ", " << 100*d_th_order_failure_risk_  << endl;
-			}
 
 			// Update dual state and penalities
 			update_lambda_(); update_mu_();		
@@ -486,9 +449,7 @@ void AULSolver::solve(
 								p_list_trajectory_split->erase(p_list_trajectory_split->begin() + max(index_m1, index_p1));
 								p_list_trajectory_split->erase(p_list_trajectory_split->begin() + min(index_m1, index_p1));
 								check_merge = history.back().second == 0;
-
-								cout << "merge" << endl;
-								cout << "	COV0 norm: " << frobenius_norm_(trajectory_split_.list_x()[0].Sigma()) << endl;
+								nb_split --;
 							}
 							break;
 						}
@@ -504,6 +465,21 @@ void AULSolver::solve(
 			loop = !force_stop_loop && force_continue_loop;
 			cost = DDPsolver_.cost();
 			DDP_n_iter_ += DDPsolver_.n_iter(); AUL_n_iter_++;
+		}
+
+		// Ouput
+		if (verbosity == 1) {
+			cout << trajectory_split_.splitting_history().to_string() << ", " 
+			<< 100*trajectory_split_.splitting_history().alpha() << ", " 
+			<< nb_split << ", "
+			<< 100*beta_star << ", " 
+			<< 100*sum_beta_T << ", "
+			<< duration_aul_split << ", "
+			<< AUL_n_iter_ << ", "
+			<< DDP_n_iter_ << ", "
+			<< DDPsolver_.list_x()[N].nominal_state()[SIZE_VECTOR] * constants.massu() << ", "
+			<< violation_ << ", "
+			<< 100*d_th_order_failure_risk_ << endl;
 		}
 
 		// Spread solution to nearby splits.
@@ -535,7 +511,7 @@ void AULSolver::solve(
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
     			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
   				for (size_t k=0; k<N+1; k++) {
-  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.05; // perturbation lambda
+  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.1; // perturbation lambda
   				}
     			list_lambda_mu[i] = list_lambda_mu_i;
 			}
@@ -548,9 +524,8 @@ void AULSolver::solve(
 		double delta_i(beta_star-beta_T_i);
 		double alpha_i(trajectory_split_.splitting_history().alpha());
 		if (p_list_trajectory_split->size() > 0) {
-			
 			double alpha_ip1(p_list_trajectory_split->at(0).splitting_history().alpha());
-			beta_star = solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i;
+			beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
 			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 		}
@@ -563,8 +538,10 @@ void AULSolver::solve(
 	auto duration_aul = duration_cast<microseconds>(stop_aul - start_aul);
 	if (verbosity < 1) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
+		cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
 	}
 	else if (verbosity < 2) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
+		cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
 	}
 }

@@ -54,7 +54,7 @@ const bool SplittingHistory::can_merge(
 	return true;
 }
 
-    // Checks if a splitting history is a child of this one.
+// Checks if a splitting history is a child of this one.
 const int SplittingHistory::is_child(
 	SplittingHistory const& history_i) const {
 	int n(this->size());
@@ -71,6 +71,15 @@ const int SplittingHistory::is_child(
 		}
 	}
 	return n + n_i - 2*min(n_i, n);
+}
+
+// Print
+const string SplittingHistory::to_string() const {
+	ostringstream oss;
+    for (const auto& entry : *this) {
+        oss << entry.first << ", " << entry.second << "; ";
+    }
+    return oss.str();
 }
 
 // Overload the << operator for output

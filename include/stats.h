@@ -80,6 +80,8 @@ template<typename T> T chi_2_cdf(
 	// Safeguard
 	if (d == 0)
 		return 0.0;
+	if (r <= 0)
+		return 0.0;
 
 	// Case disjunction
 	T r_div_2_i = r/2.0;

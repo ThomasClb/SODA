@@ -17,6 +17,7 @@
 #include <utility>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 #include "settings.h"
 
@@ -42,6 +43,9 @@ public:
 
     // Checks if a splitting history is a child of this one.
     const int is_child(SplittingHistory const& history) const;
+
+    // Conversion to a string
+    const std::string to_string() const;
 
     // IO operator
     friend std::ostream& operator<<(std::ostream& os, const SplittingHistory& history);

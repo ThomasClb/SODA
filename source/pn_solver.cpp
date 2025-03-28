@@ -178,22 +178,19 @@ double PNSolver::update_path_quantile_(
 
 
 	if (init) {
-		double fact_conservatism_ = 0.1;
+		double fact_conservatism_ = 1.0/(N*Nineq + Ntineq*1.0);
 		solver_parameters_.set_path_quantile(
-			fact_conservatism_*sqrt(inv_chi_2_cdf(
-				N*Nineq + Ntineq,
+			sqrt(inv_chi_2_cdf(
+				fact_conservatism_*(N*Nineq + Ntineq),
 				1 - beta_star)));
 		return fact_conservatism_;
 	}
-
-	double fact_conservatism_ = min(1.2*fact_conservatism, 1.0);
-	unsigned int constraints_stchastic_dim(N*Nineq + Ntineq);  // TO DO trouver loi
+	double fact_conservatism_ = fact_conservatism + 0.1;
+	fact_conservatism_ = min(1.0, fact_conservatism_);
 	solver_parameters_.set_path_quantile(
-		fact_conservatism_*sqrt(inv_chi_2_cdf(
-			constraints_stchastic_dim,
+		sqrt(inv_chi_2_cdf(
+			fact_conservatism_*(N*Nineq + Ntineq),
 			1 - beta_star)));
-
-	cout << fact_conservatism_ << ", " << constraints_stchastic_dim << ", " << solver_parameters_.path_quantile() << endl;
 	return fact_conservatism_;
 }
 
@@ -224,8 +221,9 @@ void PNSolver::solve(
 		cout << "#                                                                          #" << endl;
 		cout << "############################################################################" << endl << endl << endl;
 	}
-	else if (verbosity < 2) {
+	else if (verbosity == 1) {
 		cout << endl << "PN solving" << endl;
+		cout << "SPLIT, α [%], β* [%], SUM β T [%], RUNTIME [s], ITER, FINAL MASS [kg], MAX CONSTRAINT, β d [%]" << endl;
 	}
 
 	// Set beta_star
@@ -233,12 +231,13 @@ void PNSolver::solve(
 	double sum_beta_T(0);
 
 	// Loop on trajectory splits
+	double duration_total = 0.0;
+	double duration_pn = 0.0;
 	for (size_t k=0; k<p_list_trajectory_split->size(); k++) {
 		set_list_x_u(p_list_trajectory_split->at(k));
 
 		// Set quantiles
 		double fact_conservatism = update_path_quantile_(0, beta_star, true);
-		double factor_beta(1.0);
 
 		// Evaluate constraints
 		update_constraints_(x_goal, false);
@@ -248,55 +247,34 @@ void PNSolver::solve(
 		
 		// Init loop
 		double cv_rate = 1e15;
-		double duration = 0.0;
 		double violation_prev = 1e15;
 		n_iter_ = 0;
 		auto start = high_resolution_clock::now();
 		auto stop = high_resolution_clock::now();
+		duration_pn = 0.0;
 		for (size_t i = 0; i < max_iter; i++) {
 			n_iter_ ++;
 
 			// Output
-			if (verbosity == 0) {
-				stop = high_resolution_clock::now();
-				auto duration = duration_cast<microseconds>(stop - start);
-				string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-				start = high_resolution_clock::now();
-				cout << i 
-					<< " - " << duration_str
-					<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-					<< " - " << violation_ 
-					<< " - " << continuity_violation 
-					<< " - " << 100*d_th_order_failure_risk_ << endl;
-			} else if (verbosity == 1) {
-				if (i % 5 == 0) {
-					stop = high_resolution_clock::now();
-					auto duration = duration_cast<microseconds>(stop - start);
-					string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-					start = high_resolution_clock::now();
-					cout << i 	
-						<< " - " << duration_str
-						<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-						<< " - " << violation_ 
-						<< " - " << continuity_violation 
-						<< " - " << 100*d_th_order_failure_risk_ << endl;
-				}
-			}
+			stop = high_resolution_clock::now();
+			double duration =static_cast<double>((duration_cast<microseconds>(stop - start)).count()) / 1e6;
+			duration_pn += duration;
+			string duration_str = to_string(duration);
+			start = high_resolution_clock::now();
 
 			// Check termination constraints
 			bool converged = (
-				violation_ < constraint_tol && 
-					(fact_conservatism == 1.0 || d_th_order_failure_risk_/factor_beta <= beta_star)) ||
-				(continuity_violation < constraint_tol && d_th_order_failure_risk_/factor_beta <= beta_star);
+				(violation_ == violation_prev && fact_conservatism == 1.0) || // No progress can be made
+				violation_ < constraint_tol && (fact_conservatism == 1.0 || d_th_order_failure_risk_ <= beta_star));
 			bool update_fact = 
-				violation_ < constraint_tol*100 &&
-				d_th_order_failure_risk_/factor_beta > beta_star &&
+				(violation_ < constraint_tol*1000 || violation_ == violation_prev) &&
+				d_th_order_failure_risk_ > beta_star &&
 				fact_conservatism < 1.0;
 
-			if (update_fact){
+			if (update_fact) {
 				fact_conservatism = update_path_quantile_(fact_conservatism, beta_star, false);
 			}
-			else if (converged || violation_ == violation_prev) // If no progress is made
+			else if (converged)
 				break;
 
 			// Update the constraints using DA
@@ -328,8 +306,7 @@ void PNSolver::solve(
 				// Termination checks
 				converged = (
 					violation_ < constraint_tol && 
-						(fact_conservatism == 1.0 || d_th_order_failure_risk_/factor_beta <= beta_star)) ||
-					(continuity_violation < constraint_tol && d_th_order_failure_risk_/factor_beta <= beta_star);
+						(fact_conservatism == 1.0 || d_th_order_failure_risk_ <= beta_star));
 				if (converged || cv_rate < cv_rate_threshold)
 					break;
 
@@ -343,32 +320,20 @@ void PNSolver::solve(
 				violation_0 = violation_;
 			}
 		}
+		update_robust_trajectory(p_list_trajectory_split, k);
 
 		// Output
-		if (verbosity == 0) {
-			stop = high_resolution_clock::now();
-			auto duration = duration_cast<microseconds>(stop - start);
-			string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-			start = high_resolution_clock::now();
-			cout  << "OUT"
-				<< " - " << duration_str
-				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-				<< " - " << violation_ 
-				<< " - " << continuity_violation 
-				<< " - " << 100*d_th_order_failure_risk_ << endl;
-		} else if (verbosity == 1) {
-			stop = high_resolution_clock::now();
-			auto duration = duration_cast<microseconds>(stop - start);
-			string duration_str = to_string(static_cast<double>(duration.count()) / 1e6);
-			start = high_resolution_clock::now();
-			cout << "OUT"
-				<< " - " << duration_str
-				<< " - " << X_U_[X_U_.size() - 2] * constants.massu()
-				<< " - " << violation_ 
-				<< " - " << continuity_violation 
-				<< " - " << 100*d_th_order_failure_risk_  << endl;
+		if (verbosity == 1) {
+			cout << p_list_trajectory_split->at(k).splitting_history().to_string() << ", " 
+			<< 100*p_list_trajectory_split->at(k).splitting_history().alpha() << ", " 
+			<< 100*beta_star << ", " 
+			<< 100*sum_beta_T << ", "
+			<< duration_pn << ", "
+			<< n_iter_ << ", "
+			<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
+			<< violation_ << ", "
+			<< 100*d_th_order_failure_risk_ << endl;
 		}
-		update_robust_trajectory(p_list_trajectory_split, k);
 
 		// Update beta_star
 		d_th_order_failure_risk_ = evaluate_risk();
@@ -376,13 +341,14 @@ void PNSolver::solve(
 		double delta_k(beta_star-beta_T_k);
 		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
 		if (k+1 < p_list_trajectory_split->size()) {
-			double alpha_kp1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
-			beta_star = solver_parameters_.transcription_beta() + alpha_k/alpha_kp1*delta_k;
+			double alpha_kp1(2*p_list_trajectory_split->at(k + 1).splitting_history().alpha());
+			beta_star = min(1.0 - EPS, solver_parameters_.transcription_beta() + alpha_k/alpha_kp1*delta_k);
 		}
 		sum_beta_T += alpha_k*d_th_order_failure_risk_;
-		cout << "	beta_star : " << 100*beta_star << endl;
-		cout << "	sum beta_T : " << 100*sum_beta_T << endl;
+		duration_total += duration_pn;		
 	}
+	cout << "Runtime : " + to_string(duration_total) + "s" << endl;
+	cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
 	return;
 }
 

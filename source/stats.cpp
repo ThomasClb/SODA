@@ -43,6 +43,8 @@ double inv_chi_2_cdf(unsigned int const& d, double const& p) {
 	// Safeguard
 	if (d == 0)
 		return 0.0;
+	if (p <= 0)
+		return 0.0;
 
 	// Init
 	double value_min = chi_2_cdf(d, r_min);
