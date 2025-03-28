@@ -332,8 +332,8 @@ void AULSolver::solve(
 		violation_ = cost;
 		d_th_order_failure_risk_ = 1.0;
 		double duration_aul_split = 0.0;
-		double LOADS_tol = 2e-3; // TO DO remove make tol LOADS attribute of solver params
-		double max_depth_p = 0.05; // TO DO remove make tol LOADS attribute of solver params
+		double LOADS_tol = 1e-2; // TO DO remove make tol LOADS attribute of solver params
+		double max_depth_p = 0.25; // TO DO remove make tol LOADS attribute of solver params
 		int nb_split = 0;
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
 			
@@ -538,10 +538,12 @@ void AULSolver::solve(
 	auto duration_aul = duration_cast<microseconds>(stop_aul - start_aul);
 	if (verbosity < 1) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
+		cout << "Number of splits : " + to_string(p_list_trajectory_split->size()) << endl;
 		cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
 	}
 	else if (verbosity < 2) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
+		cout << "Number of splits : " + to_string(p_list_trajectory_split->size()) << endl;
 		cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
 	}
 }

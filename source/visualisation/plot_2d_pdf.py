@@ -142,8 +142,8 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
         quad[1, 0] = quad[0,1]
         list_quad.append(quad)
     x_m, y_m = 0.5*(lims[0] + lims[1]), 0.5*(lims[2] + lims[3])
-    dx, dy = lims[1] - lims[0], lims[3] - lims[2]
-    coef = 1.1
+    dx, dy = (lims[1] - lims[0])/2, (lims[3] - lims[2])/2
+    coef = 1.8
     X_norm = np.linspace(x_m - coef*dx, x_m + coef*dx, nb_points)
     Y_norm = np.linspace(y_m - coef*dy, y_m + coef*dy, nb_points)
     X_norm, Y_norm = np.meshgrid(X_norm, Y_norm)
@@ -297,11 +297,11 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
 def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     
     # Settings
-    plt.rcParams.update({'font.size': 11})
+    plt.rcParams.update({'font.size': 12})
     dpi = 200
     
     # Axes
-    list_axis = [[0, 1]]
+    list_axis = [[0, 1], [3, 4]]
     if "halo" in dataset.file_name:
         list_axis = [[0, 1], [0, 2]]
 
@@ -309,9 +309,9 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     
     # Ellipses
     cmap = "plasma_r" 
-    ellipse_alpha = 0.4
-    ellipse_nb_points = 104
-    ellipse_levels = np.array([10**i for i in range(-4, 0 + 1, 1)])
+    ellipse_alpha = 0.35
+    ellipse_nb_points = 504
+    ellipse_levels = np.array([10**i for i in range(-6, 0 + 1, 1)])
     plot_CL = True
     if "mars" in dataset.file_name:
         ellipse_scale = 15
@@ -348,7 +348,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     color_sample = "#9a7bb5"
     maker_sample = "."
     max_sample_size = 400
-    sample_alpha = 0.7
+    sample_alpha = 0.5
     marker_size = 10
     
     # Normalisation
@@ -402,8 +402,6 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         shape = (2, 2)
         fig, ax = plt.subplots(shape[0], shape[1], constrained_layout = True, dpi=dpi)
         for i, index in enumerate(list_index):
-            # ax = fig.add_subplot()
-            # ax_i.set_aspect("equal")
             ax_i = ax.flat[i]
 
             # Set labels
@@ -427,13 +425,17 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
                                    list_colors_departure_arrival,
                                    list_markers_departure_arrival,
                                    denormalise)
-            
+
             # lims
             x_m, y_m = 0.5*(x_min + x_max), 0.5*(y_min + y_max)
-            dx, dy = x_max - x_min, y_max - y_min
-            coef = 1
+            dx, dy = (x_max - x_min)/2, (y_max - y_min)/2
+            coef = 1.8
             ax_i.set_xlim(x_m - coef*dx, x_m + coef*dx)
             ax_i.set_ylim(y_m - coef*dy, y_m + coef*dy)
+
+            step_str = r"$\frac{t}{ToF}=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
+            ax_i.text(x_m - 0.9*coef*dx, y_m + 0.75*coef*dy,
+                step_str, zorder=100)
 
             if show_grid:
                 ax_i.grid(alpha=0.5, color="#d3d3d3")
