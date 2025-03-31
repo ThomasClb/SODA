@@ -18,6 +18,7 @@ from plot_thrust_profile import plot_thrust_profile
 from plot_nli import plot_nli
 from plot_double_integrator import plot_double_integrator_u, plot_double_integrator_x
 from plot_hypervolume import plot_hypervolume
+from compute_LAM import compute_LAM
 import matplotlib.pyplot as plt
 
 global ALPHA_0_GMM, ALPHA_1_GMM
@@ -106,9 +107,11 @@ if __name__ == "__main__":
 
     # Astrodynamics test cases.
     else:   
-        # plot_thrust_profile(dataset_robust, dataset_sample)
+        plot_thrust_profile(dataset_robust, dataset_sample)
+        compute_LAM(dataset_robust, dataset_sample)
         for i in list_2d:
             if i in file_name_robust:
+                plot_2d(dataset_robust, dataset_sample)
                 plot_2d_pdf(dataset_robust, dataset_sample)
                 break
     

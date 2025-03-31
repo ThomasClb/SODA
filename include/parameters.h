@@ -116,6 +116,8 @@ protected:
 	double DDP_tol_; // DDPSolver tolerance [-]
 	double AUL_tol_; // AULSolver tolerance [-]
 	double PN_tol_; // PNSolver tolerance [-]
+	double LOADS_tol_; // LOADS tolerance [-]
+	double LOADS_max_depth_; // LOADS max depth (propabilistic) [-]
 	unsigned int DDP_max_iter_; // Maximum number of iterations for DDP [-]
 	unsigned int AUL_max_iter_; // Maximum number of iterations for AUL [-]
 	unsigned int PN_max_iter_; // Maximum number of iterations for PN [-]
@@ -155,7 +157,9 @@ public:
 		DACE::vectordb const& homotopy_coefficient_sequence,
 		DACE::vectordb const& huber_loss_coefficient_sequence,
 		unsigned int const& DDP_type,
-		double const& DDP_tol, double const& AUL_tol, double const& PN_tol,
+		double const& DDP_tol, double const& AUL_tol,
+		double const& PN_tol, double const& LOADS_tol,
+		double const& LOADS_max_depth,
 		unsigned int const& DDP_max_iter, unsigned int const& AUL_max_iter,
 		unsigned int const& PN_max_iter,
 		DACE::vectordb const& line_search_parameters,
@@ -197,6 +201,8 @@ public:
 	const double DDP_tol() const;
 	const double AUL_tol() const;
 	const double PN_tol() const;
+	const double LOADS_tol() const;
+	const double LOADS_max_depth() const;
 	const unsigned int DDP_max_iter() const;
 	const unsigned int AUL_max_iter() const;
 	const unsigned int PN_max_iter() const;

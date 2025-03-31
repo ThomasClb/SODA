@@ -226,132 +226,9 @@ def plot_reference_orbits(dataset, axis_0, axis_1, ax,
             alpha=alpha,
             color=list_colors[1], linestyle=list_linestyles[1])
 
-"""
-    Plots the projections of the uncertainty ellipsoïds of a transfer.
-
-"""
-def plot_state_distribution(dataset, axis_0, axis_1, ax, plot_CL,
-                            scale, sampling, nb_points,
-                            transparancy, levels, cmap, denormalise):
-
-    # Retreive data
-    nb_datasets = len(dataset.list_dataset_names)
-
-    # Retrieve GMM size
-    nb_GMM = int((nb_datasets - 2)/6)
-    list_data_state = []
-    list_data_Sigma = []
-    list_data_der = []
-    list_history = []
-    for k in range(nb_GMM):
-        for i in range(nb_datasets):
-            if (dataset.list_dataset_names[i][0] == "Sigma GMM " + str(k)):
-                data_Sigma = dataset.list_datasets[i].copy()
-                list_data_Sigma.append(data_Sigma)
-            elif (dataset.list_dataset_names[i][0] == "Nominal state GMM " + str(k)):
-                data_state = dataset.list_datasets[i].copy()
-                list_data_state.append(data_state)
-            elif (dataset.list_dataset_names[i][0] == "Der dynamics GMM " + str(k)):
-                data_der = dataset.list_datasets[i].copy()
-                list_data_der.append(data_der)
-            elif (dataset.list_dataset_names[i][0] == "Splitting history GMM " + str(k)):
-                data_history = dataset.list_datasets[i].copy()
-                list_history.append(data_history)
-    LU = dataset.spacecraft_parameters.constants.LU
-
-    # Get beta
-    list_file_name = dataset.file_name.split("_")
-    inv_beta = float(list_file_name[-4])
-    beta = 0.05
-    if inv_beta != 0:
-        beta = 1/inv_beta   
-        
-    # Plot ellispses
-    quad = np.zeros((2,2))
-    d = int(np.sqrt(len(data_Sigma[:,0])))
-    N = len(data_Sigma[0,:])
-    for index in range(sampling):
-        if index >= 0:
-
-            i = int(index/(sampling-1.0)*(N-1))
-            Z_i = np.zeros((nb_points,nb_points))
-            center_i_0 = np.array([0,0])
-            list_alpha = []
-            list_center = []
-            list_quad = []
-            center_0 = np.array([0,0])
-            quad_0 = np.zeros((2,2))
-
-            # Get mean + cov
-            for k in range(nb_GMM):            
-                # Get alpha
-                alpha = 1
-                data_history = list_history[k]
-                if data_history.shape[1] != 0:
-                    for j in range(len(data_history[0,:])):
-                        if data_history[1,j] == 0:
-                            alpha = alpha*ALPHA_0_GMM
-                        elif abs(data_history[1,j]) == 1:
-                            alpha = alpha*ALPHA_1_GMM
-                list_alpha.append(alpha)
-                center = np.array([list_data_state[k][:,i][axis_0], list_data_state[k][:,i][axis_1]])
-                list_center.append(center)
-                center_0 = center_0 + alpha*center
-
-                # Store covariance
-                Sigma = list_data_Sigma[0][:,i]
-                quad[0,0] = Sigma[axis_0 + d*axis_0]
-                quad[1,1] = Sigma[axis_1 + d*axis_1]
-                quad[0,1] = Sigma[axis_0 + d*axis_1]
-                quad[1, 0] = quad[0,1]
-                list_quad.append(quad)
-                quad_0 += alpha*(quad)
-            norm_0 = np.sqrt(np.linalg.norm(quad_0))
-            lim = norm_0*50*scale
-
-            X_norm = np.linspace(-lim, lim, nb_points)
-            Y_norm = np.linspace(-lim, lim, nb_points)
-            X_norm, Y_norm = np.meshgrid(X_norm, Y_norm)
-            pos_norm = np.dstack((X_norm, Y_norm))
-
-
-            for m in range(pos_norm.shape[0]):
-                for n in range(pos_norm.shape[1]):
-                    pos_norm[m, n] = center_0 + pos_norm[m, n]
-            X = (pos_norm[0,:,0] - center_0[0])*scale + center_0[0]
-            Y = (pos_norm[:,0,1] - center_0[1])*scale + center_0[1]
-
-            # Denormalise
-            if denormalise:
-                X *= LU
-                Y *= LU
-
-            for k in range(nb_GMM):            
-                # Get projected cov
-                alpha = list_alpha[k]
-                quad = list_quad[k]
-                center = list_center[k]
-
-                # Denormalise
-                if denormalise:
-                    center *= LU
-                    quad *= LU*LU
-                
-                # Make pdfs
-                center = (center - center_0)*scale**0.25 + center_0
-                quad = quad*scale*scale
-                Z_i = Z_i + alpha*multivariate_normal.pdf(pos_norm, mean=center, cov=quad, allow_singular=False)
-            Z_i /= np.max(Z_i)
-
-            CS = ax.contourf(X, Y, Z_i, levels,
-                norm=clr.LogNorm(),
-                alpha=transparancy,
-                cmap=cmap, zorder=100)
-    return CS
-
 
 def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample_size,
-                scale, transparancy, color, linewidth,
+                transparancy, color, linewidth,
                 denormalise, interpolation, interpolation_rate):
 
     # Retreive data
@@ -456,12 +333,12 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample
                 coord_1_split = list_coord_1[index]
 
                 # Scale in split
-                coord_0_i = coord_0_split + (coord_0_i - coord_0_split)*scale
-                coord_1_i = coord_1_split + (coord_1_i - coord_1_split)*scale
+                coord_0_i = coord_0_split + (coord_0_i - coord_0_split)
+                coord_1_i = coord_1_split + (coord_1_i - coord_1_split)
 
                 # Scale
-                coord_0_sample[i] = coord_0 + (coord_0_i - coord_0)*scale**1.25
-                coord_1_sample[i] = coord_1 + (coord_1_i - coord_1)*scale**1.25
+                coord_0_sample[i] = coord_0 + (coord_0_i - coord_0)
+                coord_1_sample[i] = coord_1 + (coord_1_i - coord_1)
         
         # Interpolate
         if sample_size != 0:
@@ -480,6 +357,39 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample
                 color=color,
                 zorder=10)
     
+"""
+    Plots the thrust vectors along the trajectory.
+
+"""
+def plot_thrust_vector(dataset, axis_0, axis_1, ax,
+    alpha, color, denormalise):
+    # Retreive data
+    nb_dataets = len(dataset.list_dataset_names)
+    for i in range(nb_dataets):
+        if (dataset.list_dataset_names[i][0] == "Nominal state GMM 0"):
+            data_state = dataset.list_datasets[i].copy()
+        elif (dataset.list_dataset_names[i][0] == "Nominal control GMM 0"):
+            data_control = dataset.list_datasets[i].copy()
+    coord_0 = data_state[axis_0,:]
+    coord_1 = data_state[axis_1,:]
+    ucoord_0 = data_control[axis_0,:]
+    ucoord_1 = data_control[axis_1,:]
+    
+    # Denormalise
+    if denormalise:
+        LU = dataset.spacecraft_parameters.constants.LU
+        THRUSTU = dataset.spacecraft_parameters.constants.THRUSTU
+        coord_0 *= LU
+        coord_1 *= LU
+        ucoord_0 *= THRUSTU
+        ucoord_1 *= THRUSTU
+    
+    # Plot arrows
+    ax.quiver(coord_0[:-1], coord_1[:-1],
+              ucoord_0, ucoord_1,
+              color=color, label='Thrust',
+              alpha=alpha,
+              zorder=10)
 
 """
     Plots a 2D plot from a given dataset.
@@ -497,23 +407,12 @@ def plot_2d(dataset, dataset_sample=Dataset()):
         list_axis = [[0, 1], [0, 2]]
     
     # Ellipses
-    cmap = "plasma_r" 
     ellipse_alpha = 0.5
     ellipse_sampling = 7
     ellipse_nb_points = 1001
     ellipse_levels = np.array([1e-240, 1e-180, 1e-120, 1e-60, 1])
     plot_CL = True
-    if "mars" in dataset.file_name:
-        ellipse_scale = 15
-    elif "halo" in dataset.file_name:
-        ellipse_scale = 3e5
-    elif "nrho" in dataset.file_name:
-        ellipse_scale = 2e5
-    elif "dro_to_dro" in dataset.file_name:
-        ellipse_scale = 1e4
-    elif "lyapunov" in dataset.file_name:
-        ellipse_scale = 5e5
-    
+
     # System points
     if dataset.dynamical_system.startswith("CR3BP"):
         list_colors_system_points = ["black", "black", "black", "black"]
@@ -539,7 +438,16 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     max_sample_size = 200
     sample_alpha = 0.3
     sample_linewidth = 0.5
+
+    # Trajectory
+    color_trajectory = "black"
+    linewidth_trajectory = 2
     
+    # Thrust
+    thrust_color = "#e63946"
+    thurst_alpha = 0.8
+    show_thrust = True
+
     # Normalisation
     denormalise = False
 
@@ -571,10 +479,15 @@ def plot_2d(dataset, dataset_sample=Dataset()):
                 data_state = dataset.list_datasets[i].copy()
                 list_names_state = dataset.list_dataset_names[i].copy()
                 list_data_state.append(data_state)
+                if k==0:
+                    date_state_0 = data_state
 
     for axies in list_axis:
         axis_0 = axies[0]
         axis_1 = axies[1]
+
+        coord_0 = date_state_0[axis_0,:]
+        coord_1 = date_state_0[axis_1,:]
 
         # Normalisation
         if denormalise:        
@@ -594,18 +507,9 @@ def plot_2d(dataset, dataset_sample=Dataset()):
         ax.set_ylabel(list_names_state[axis_1 + 1])
 
         plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample_size,
-                    ellipse_scale, sample_alpha, color_sample, sample_linewidth,
+                    sample_alpha, color_sample, sample_linewidth,
                     denormalise, interpolation, interpolation_rate)
         
-        # Plot state dispersion TO DO
-        CS = plot_state_distribution(dataset, axis_0, axis_1, ax,
-            plot_CL, ellipse_scale, ellipse_sampling, ellipse_nb_points,
-            ellipse_alpha, ellipse_levels,
-            cmap, denormalise)
-
-        cbar = fig.colorbar(CS, ax=ax)
-        cbar.set_label("Normalized state PDF [-]")
-
         # Plot reference orbits
         plot_reference_orbits(dataset, axis_0, axis_1, ax,
                               alpha_reference,
@@ -618,6 +522,12 @@ def plot_2d(dataset, dataset_sample=Dataset()):
                                list_colors_departure_arrival,
                                list_markers_departure_arrival,
                                denormalise)
+
+        # Plot Thrust
+        if show_thrust:
+            plot_thrust_vector(dataset, axis_0, axis_1,
+                               ax, thurst_alpha, thrust_color,
+                               denormalise)
         
         # Plot system points
         plot_system_points(dataset, axis_0, axis_1, ax,
@@ -625,6 +535,13 @@ def plot_2d(dataset, dataset_sample=Dataset()):
                            list_markers_system_points,
                            list_plots_system_points,
                            denormalise)
+
+        # Plot trajectory
+        ax.plot(coord_0, coord_1,
+                color=color_trajectory,
+                label='Trajectory',
+                zorder=11,
+                linewidth=linewidth_trajectory)
 
         # Layout
         fig.tight_layout(pad=0.2)

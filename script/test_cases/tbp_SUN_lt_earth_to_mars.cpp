@@ -35,21 +35,17 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double mass_leak = 1e-4;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	/* NORMAL */
 	vectordb homotopy_sequence{0, 0.5, 0.9, 0.999}; 
 	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 5e-3, 1e-3};
-	
-	/* COMPARE TRANSCRIPTION (Spectral radius is too sentitive)
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.99}; 
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 5e-3, 1e-3};
-	*/
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
+	double LOADS_tol = 1e-2;
+	double LOADS_max_depth = 0.05;
 	double PN_active_constraint_tol = 1e-15;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
-	unsigned int AUL_max_iter = 15;
+	unsigned int AUL_max_iter = 25;
 	unsigned int PN_max_iter = 1000;
 	vectordb lambda_parameters{0.0, 1e8};
 	vectordb mu_parameters{1, 1e8, 10};
@@ -73,6 +69,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		huber_loss_coefficient_sequence,
 		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
+		LOADS_tol, LOADS_max_depth,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,

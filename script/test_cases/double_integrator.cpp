@@ -36,6 +36,8 @@ SolverParameters get_SolverParameters_double_integrator(
 	double DDP_tol = 1e-6;
 	double AUL_tol = 1e-8; 
 	double PN_tol = 1e-12;
+	double LOADS_tol = 1e-2;
+	double LOADS_max_depth = 0.1;
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -64,6 +66,7 @@ SolverParameters get_SolverParameters_double_integrator(
 		huber_loss_coefficient_sequence,
 		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
+		LOADS_tol, LOADS_max_depth,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,

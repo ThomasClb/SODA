@@ -243,6 +243,8 @@ void AULSolver::solve(
 	unsigned int Nineq = solver_parameters.Nineq();
 	unsigned int Ntineq = solver_parameters.Ntineq();
 	double AUL_tol = solver_parameters.AUL_tol();
+	double LOADS_tol = solver_parameters.LOADS_tol();
+	double LOADS_max_depth = solver_parameters.LOADS_max_depth();
 	int AUL_max_iter = solver_parameters.AUL_max_iter();
 	vectordb mu_parameters = solver_parameters.mu_parameters();
 	vectordb lambda_parameters = solver_parameters.lambda_parameters();
@@ -332,8 +334,6 @@ void AULSolver::solve(
 		violation_ = cost;
 		d_th_order_failure_risk_ = 1.0;
 		double duration_aul_split = 0.0;
-		double LOADS_tol = 1e-2; // TO DO remove make tol LOADS attribute of solver params
-		double max_depth_p = 0.25; // TO DO remove make tol LOADS attribute of solver params
 		int nb_split = 0;
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
 			
@@ -341,7 +341,7 @@ void AULSolver::solve(
 			if (trajectory_split_.list_dynamics_eval().size() == N) {
 
 				bool loop_nli(true);
-				while (trajectory_split_.splitting_history().alpha() > max_depth_p && loop_nli) { 
+				while (min(ALPHA_0_GMM, ALPHA_1_GMM)*trajectory_split_.splitting_history().alpha() > LOADS_max_depth && loop_nli) { 
 
 					// Compute NLI
 					vectordb list_nli = nl_index(

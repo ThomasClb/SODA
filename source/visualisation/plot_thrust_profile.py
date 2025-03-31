@@ -52,7 +52,7 @@ def plot_stairs_profile(dt, u, ax, label, color,
 
 
 def plot_sample(dataset, dataset_sample, ax, max_sample_size,
-                scale, transparancy, color, linewidth,
+                transparancy, color, linewidth,
                 denormalise):
 
     # Retreive data
@@ -151,7 +151,7 @@ def plot_sample(dataset, dataset_sample, ax, max_sample_size,
             u_mean = list_control[index]
 
             # Scale
-            control_sample[i] = u_mean + (u - u_mean)*scale**2
+            control_sample[i] = u_mean + (u - u_mean)
 
     # Sample
     if sample_size != 0:
@@ -171,34 +171,17 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     dpi = 200
     
     # Thrust norm
-    color_thrust_norm = "#9a7bb5"
+    color_thrust_norm = "k"
     label_thrust_norm  = "Thrust"
-    alpha_thrust_norm = 0.5
-    linewidth_thrust_norm = 1
+    alpha_thrust_norm = 1
+    linewidth_thrust_norm = 1.5
     sampling_thrust = 10000
      
     # Max thrust norm
     color_thrust_max = "#e63946"
     linestyle_thrust_max = "dotted"
     label_thrust_max  = "Max thrust"
-    alpha_thrust_max = 0.5
-
-    # Robust thrust norm
-    color_thrust_robust = "#4a90e2"
-    linestyle_thrust_robust = "dashed"
-    alpha_thrust_robust = 0.5
-    linewidth_thrust_robust = 0.8
-    label_thrust_robust  = "Margins"
-    if "mars" in dataset.file_name:
-        scale_thrust_robust = 10
-    elif "halo" in dataset.file_name:
-        scale_thrust_robust = 2000
-    elif "nrho" in dataset.file_name:
-        scale_thrust_robust = 1000
-    elif "dro_to_dro" in dataset.file_name:
-        scale_thrust_robust = 200
-    elif "lyapunov" in dataset.file_name:
-        scale_thrust_robust = 3000
+    alpha_thrust_max = 1.0
 
     # Sample norm
     sample_color = "#9a7bb5"
@@ -288,48 +271,6 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
             uz_0 = data_control[2,:]
             u_0 = np.sqrt(ux_0*ux_0 + uy_0*uy_0 + uz_0*uz_0)
 
-        # Get Sigma
-        list_sigma = []
-        for j in range(N-1):
-            K = data_gains[:,j].reshape((3,8))
-            Sigma_x = data_Sigma[:,j].reshape((8,8))
-            A = np.array([ux[j], uy[j], uz[j]]).T@K
-            if u[j] != 0:
-                A = A/u[j]
-            Sigma = A@Sigma_x@A.T
-            
-            # Normalisation
-            if denormalise:
-                Sigma *= THRUSTU*THRUSTU
-            
-            # Scale
-            Sigma = scale_thrust_robust*scale_thrust_robust*Sigma
-
-            list_sigma.append(Sigma)
-
-        # Get alpha
-        alpha = 1
-        if data_history.shape[1] != 0:
-            for j in range(len(data_history[0,:])):
-                if data_history[1,j] == 0:
-                    alpha = alpha*ALPHA_0_GMM
-                elif abs(data_history[1,j]) == 1:
-                    alpha = alpha*ALPHA_1_GMM
-
-        # Make pdfs
-        l_pdf = []
-        for j in range(N-1):
-            l_pdf.append(alpha*multivariate_normal.pdf(x, mean=u[j], cov=list_sigma[j], allow_singular=False))
-        list_pdf.append(l_pdf)
-
-    thrust_pdf = np.zeros((sampling_thrust,N-1))
-    for k in range(nb_GMM):
-        for j in range(N-1):
-            thrust_pdf[:,j] = thrust_pdf[:,j] + list_pdf[k][j]
-    for j in range(N-1):
-        thrust_pdf[:,j] /= max(thrust_pdf[:,j])
-    thrust_pdf[thrust_pdf<1e-290] = 0
-
     # Create plot
     fig = plt.figure(dpi=dpi)
     ax = fig.add_subplot()
@@ -343,27 +284,19 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     plt.xlim((-dt[0], N*dt[0]))
 
     plot_sample(dataset, dataset_sample, ax, max_sample_size,
-                scale_thrust_robust, sample_alpha, sample_color, sample_linewidth,
+                sample_alpha, sample_color, sample_linewidth,
                 denormalise)
-
-    # Colormap
-    im = ax.imshow(thrust_pdf,
-        norm=clr.LogNorm(vmax=1,vmin=1e-250),
-        aspect="auto",
-        interpolation="None",
-        origin="lower",
-        alpha=alpha_thrust_robust,
-        extent=[0, (N-1)*dt[0], x[0], x[-1]],
-        cmap=cmap, zorder=10)
        
     # Plot max thrust
     t, u_stairs = make_stairs(dt, u*0 + max_trust)
     ax.plot(t, u_stairs, label=label_thrust_max,
             color=color_thrust_max, linestyle=linestyle_thrust_max,
             alpha=alpha_thrust_max)
-    
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("Normalized thrust norm PDF [-]")
+
+    # Plot max thrust
+    t, u_stairs = make_stairs(dt, u_0)
+    ax.plot(t, u_stairs, label=label_thrust_norm,
+            color=color_thrust_norm, linewidth=linewidth_thrust_norm)
 
     # Layout
     fig.tight_layout(pad=0.2)

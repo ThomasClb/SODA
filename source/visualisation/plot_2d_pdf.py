@@ -143,7 +143,7 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
         list_quad.append(quad)
     x_m, y_m = 0.5*(lims[0] + lims[1]), 0.5*(lims[2] + lims[3])
     dx, dy = (lims[1] - lims[0])/2, (lims[3] - lims[2])/2
-    coef = 1.8
+    coef = 1.3
     X_norm = np.linspace(x_m - coef*dx, x_m + coef*dx, nb_points)
     Y_norm = np.linspace(y_m - coef*dy, y_m + coef*dy, nb_points)
     X_norm, Y_norm = np.meshgrid(X_norm, Y_norm)
@@ -297,21 +297,22 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
 def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     
     # Settings
-    plt.rcParams.update({'font.size': 12})
+    plt.rcParams.update({'font.size': 10})
     dpi = 200
     
     # Axes
     list_axis = [[0, 1], [3, 4]]
     if "halo" in dataset.file_name:
         list_axis = [[0, 1], [0, 2]]
-
     sampling = 4
     
     # Ellipses
-    cmap = "plasma_r" 
-    ellipse_alpha = 0.35
-    ellipse_nb_points = 504
-    ellipse_levels = np.array([10**i for i in range(-6, 0 + 1, 1)])
+    cmap = "plasma" 
+    ellipse_alpha = 1.0
+    ellipse_nb_points = 604
+    levels_min, levels_max = -5, 0
+    nb_levels = 6
+    ellipse_levels = [10**i for i in np.linspace(levels_min, levels_max, nb_levels)] 
     plot_CL = True
     if "mars" in dataset.file_name:
         ellipse_scale = 15
@@ -346,10 +347,10 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
 
     # Sample
     color_sample = "#9a7bb5"
-    maker_sample = "."
+    maker_sample = "+"
     max_sample_size = 400
-    sample_alpha = 0.5
-    marker_size = 10
+    sample_alpha = 0.8
+    marker_size = 30
     
     # Normalisation
     denormalise = False
@@ -429,20 +430,19 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
             # lims
             x_m, y_m = 0.5*(x_min + x_max), 0.5*(y_min + y_max)
             dx, dy = (x_max - x_min)/2, (y_max - y_min)/2
-            coef = 1.8
+            coef = 1.3
             ax_i.set_xlim(x_m - coef*dx, x_m + coef*dx)
             ax_i.set_ylim(y_m - coef*dy, y_m + coef*dy)
 
-            step_str = r"$\frac{t}{ToF}=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
-            ax_i.text(x_m - 0.9*coef*dx, y_m + 0.75*coef*dy,
-                step_str, zorder=100)
+            step_str = r"$t/ToF=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
+            ax_i.set_title(step_str)
 
             if show_grid:
                 ax_i.grid(alpha=0.5, color="#d3d3d3")
 
         # Color bar
         cbar = fig.colorbar(CS, ax=ax, location="right")
-        cbar.set_label("Normalized state PDF [-]")
+        cbar.set_label("PDF [-]")
 
 
         fig.text(0.5, 0.04, list_names_state[axis_0 + 1], ha='center', va='center')
