@@ -233,7 +233,8 @@ void PNSolver::solve(
 	// Loop on trajectory splits
 	double duration_total = 0.0;
 	double duration_pn = 0.0;
-	for (size_t k=0; k<p_list_trajectory_split->size(); k++) {
+	size_t K = p_list_trajectory_split->size();
+	for (int k=0; k<K; k++) {
 		set_list_x_u(p_list_trajectory_split->at(k));
 
 		// Set quantiles
@@ -340,15 +341,17 @@ void PNSolver::solve(
 		double beta_T_k(min(beta_star, d_th_order_failure_risk_));
 		double delta_k(beta_star-beta_T_k);
 		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
-		if (k+1 < p_list_trajectory_split->size()) {
-			double alpha_kp1(2*p_list_trajectory_split->at(k + 1).splitting_history().alpha());
+		if (k+1 < K) {
+			double alpha_kp1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
 			beta_star = min(1.0 - EPS, solver_parameters_.transcription_beta() + alpha_k/alpha_kp1*delta_k);
 		}
 		sum_beta_T += alpha_k*d_th_order_failure_risk_;
 		duration_total += duration_pn;		
 	}
 	cout << "Runtime : " + to_string(duration_total) + "s" << endl;
+	cout << "Number of splits : " + to_string(K) << endl;
 	cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
+
 	return;
 }
 

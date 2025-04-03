@@ -113,15 +113,6 @@ vectordb propagate_trajectory(
 		vectordb du = (u.feedback_gain()*dx).extract(0, Nu-1);
 		vectordb u_sample = u.nominal_control() + du;
 
-		// Propagate dynamics
-		vectordb x_kp1_sample = dynamics.dynamic_db()(
-			x_sample, u_sample,
-			spacecraft_parameters, constants, solver_parameters);
-
-		// Add nav error
-		x_kp1_sample += vectordb(navigation_error_sample.getcol(i));
-		list_x_sample.push_back(x_kp1_sample);
-
 		// Evaluate sc
 		double sc = dynamics.stage_cost_db()(
 			x_sample, u_sample,
@@ -134,6 +125,15 @@ vectordb propagate_trajectory(
 			x_sample, u_sample,
 			spacecraft_parameters, constants, solver_parameters);
 		list_constraints.push_back(constraints);
+
+		// Propagate dynamics
+		vectordb x_kp1_sample = dynamics.dynamic_db()(
+			x_sample, u_sample,
+			spacecraft_parameters, constants, solver_parameters);
+
+		// Add nav error
+		x_kp1_sample += vectordb(navigation_error_sample.getcol(i));
+		list_x_sample.push_back(x_kp1_sample);
 
 		// Save value if needed
 		if (save_trajectory) {

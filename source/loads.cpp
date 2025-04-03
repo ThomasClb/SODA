@@ -103,13 +103,15 @@ vector<tuple<double, vectordb, matrixdb>> split_gmm(
     vectordb eigenvalues(eig.first);
     matrixdb eigenvectors(eig.second);
 
+    // Compute nominal_state_tilde
+    vectordb d_nominal_state_tilde = (sqrt(eigenvalues[direction])*MU_GMM)*vectordb(eigenvectors.getcol(direction));
+
     // Compute Sigma
     eigenvalues[direction] *= SIGMA_GMM*SIGMA_GMM;
     matrixdb Sigma_tilde(eigenvectors*make_diag_matrix_(eigenvalues)*eigenvectors.transpose());
 
-    // Compute nominal_state_tilde
+    // Make output
     vector<tuple<double, vectordb, matrixdb>> output(3);
-    vectordb d_nominal_state_tilde = (sqrt(eigenvalues[direction])*MU_GMM)*vectordb(eigenvectors.getcol(direction));
     output[0] = tuple<double,vectordb,matrixdb>{ALPHA_1_GMM, y_mean - d_nominal_state_tilde, Sigma_tilde};
     output[1] = tuple<double,vectordb,matrixdb>{ALPHA_0_GMM, y_mean, Sigma_tilde};
     output[2] = tuple<double,vectordb,matrixdb>{ALPHA_1_GMM, y_mean + d_nominal_state_tilde, Sigma_tilde};

@@ -287,6 +287,7 @@ void AULSolver::solve(
 
 	// Init Robust Trajectory
 	deque<TrajectorySplit> list_trajectory_split;
+	deque<matrixdb> list_inv_covariance;
 	deque<pair<vector<vectordb>,vector<vectordb>>> list_lambda_mu = list_lambda_mu_;
 	list_lambda_mu_.clear();
 
@@ -370,7 +371,7 @@ void AULSolver::solve(
 							loop_nli = false;
 					}
 				}
-			} 
+			}
 
 			// Solve DDP problem
 			auto start = high_resolution_clock::now();
@@ -381,7 +382,7 @@ void AULSolver::solve(
 			auto duration_ddp = duration_cast<microseconds>(stop - start);
 			duration_aul_split += static_cast<double>(duration_ddp.count()) / 1e6;
 
-			// Store results
+			// Assign
 			trajectory_split_.set_list_dynamics_eval(DDPsolver_.list_dynamics_eval());
 			trajectory_split_.set_list_x(DDPsolver_.list_x());
 			trajectory_split_.set_list_u(DDPsolver_.list_u());
@@ -488,16 +489,45 @@ void AULSolver::solve(
 			// Unpack
 			vectordb nominal_state_i(p_list_trajectory_split->at(i).list_x()[0].nominal_state());
 
+			// Get inverse covaraince
+			// Compute eigenvalues
+	        pair<vectordb, matrixdb> eig(jacobi_eigenvalue_(p_list_trajectory_split->at(i).list_x()[0].Sigma()));
+	        vectordb eigenvalues(eig.first);
+	        matrixdb eigenvectors(eig.second);
+	        for (size_t k=0; k<eigenvalues.size(); k++) {
+	            double buff = eigenvalues[k];
+	            if (buff > 0)
+	                eigenvalues[k] = 1/buff;
+	        }
+	        matrixdb inv_Sigma(eigenvectors*make_diag_matrix_(eigenvalues)*eigenvectors.transpose());
+
+	        // Get difference
+	        vectordb diff(nominal_state_i-nominal_state);
+
 			// Check if history_i is child of history
-			double distance((nominal_state_i-nominal_state).vnorm());
+			double distance(sqrt(diff.dot(inv_Sigma*diff)));
 
 			// Check if a closer parent has already be optimised in list_trajectory_split
 			bool update_child(true);
-			for (size_t j=0; j<list_trajectory_split.size(); j++) {
-				vectordb nominal_state_j(list_trajectory_split[j].list_x()[0].nominal_state());
-				if ((nominal_state_j-nominal_state).vnorm() <= distance) {
-					update_child = false;
-					break;
+			if (distance >= 10)
+				update_child = false;
+			else {
+				for (size_t j=0; j<list_trajectory_split.size(); j++) {
+					vectordb nominal_state_j(list_trajectory_split[j].list_x()[0].nominal_state());
+
+					// Get inverse covaraince
+			        matrixdb inv_Sigma_j(list_inv_covariance[j]);
+
+			        // Get difference
+			        vectordb diff_j(nominal_state_j-nominal_state);
+
+					// Check if history_i is child of history
+					double distance_j(sqrt(diff_j.dot(inv_Sigma_j*diff_j)));
+
+					if (distance_j <= distance) {
+						update_child = false;
+						break;
+					}
 				}
 			}
 
@@ -511,12 +541,28 @@ void AULSolver::solve(
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
     			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
   				for (size_t k=0; k<N+1; k++) {
-  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.1; // perturbation lambda
+  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.01; // perturbation lambda
   				}
     			list_lambda_mu[i] = list_lambda_mu_i;
 			}
 		}
+
+		// Get inverse covaraince
+		// Compute eigenvalues
+        pair<vectordb, matrixdb> eig_(jacobi_eigenvalue_(trajectory_split_.list_x()[0].Sigma()));
+        vectordb eigenvalues_(eig_.first);
+        matrixdb eigenvectors_(eig_.second);
+        for (size_t k=0; k<eigenvalues_.size(); k++) {
+            double buff_ = eigenvalues_[k];
+            if (buff_ > 0) {
+                eigenvalues_[k] = 1/buff_;
+            }
+        }
+        matrixdb inv_Sigma_(eigenvectors_*make_diag_matrix_(eigenvalues_)*eigenvectors_.transpose());
+
+        // Add to list
 		list_trajectory_split.push_back(trajectory_split_);
+		list_inv_covariance.push_back(inv_Sigma_);
 		list_lambda_mu_.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
 
 		// Update beta_star
@@ -529,7 +575,7 @@ void AULSolver::solve(
 			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 		}
-		sum_beta_T += beta_T_i*alpha_i;
+		sum_beta_T += d_th_order_failure_risk_*alpha_i;
 	}
 	*p_list_trajectory_split = list_trajectory_split;
 

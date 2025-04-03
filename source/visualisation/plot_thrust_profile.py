@@ -205,7 +205,7 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = True
+    show_plot = False
     
     # Retreive data
     nb_datadets = len(dataset.list_dataset_names)

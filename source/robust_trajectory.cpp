@@ -46,7 +46,8 @@ void RobustTrajectory::set_list_inv_covariance(deque<matrixdb> const& list_inv_c
 }
 
 // Returns the sorter list of all mahalanobis distances for a given vector x.
-const vector<pair<double, size_t>> RobustTrajectory::get_mahalanobis_distance(vectordb const& x) const {
+const vector<pair<double, size_t>> RobustTrajectory::get_mahalanobis_distance(
+    vectordb const& x) const {
 
     vector<pair<double, size_t>> output(this->size());
     for (size_t i=0; i<this->size(); i++) {

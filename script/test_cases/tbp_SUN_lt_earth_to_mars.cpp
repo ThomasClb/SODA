@@ -40,8 +40,8 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
-	double LOADS_tol = 1e-2;
-	double LOADS_max_depth = 0.05;
+	double LOADS_tol = 1e-3;
+	double LOADS_max_depth = 0.9;
 	double PN_active_constraint_tol = 1e-15;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -140,7 +140,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Uncertainties
 	double position_error = 10/lu; double velocity_error = 0.1/vu;
-	position_error = 10/lu; velocity_error = 1e-2/vu;
+	position_error = 10/lu; velocity_error = 1e-3/vu;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error/100,
 		velocity_error, velocity_error, velocity_error/100,

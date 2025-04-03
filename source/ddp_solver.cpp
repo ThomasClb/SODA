@@ -817,13 +817,12 @@ void DDPSolver::solve(
 	auto start = high_resolution_clock::now();
 	if (recompute_dynamics_) {
 		list_x_ = vector<statedb>();
-		list_dynamics_eval_ = vector<vectorDA>();
-		list_dynamics_eval_.reserve(N);
 		list_x_.reserve(N + 1);
 		list_x_.push_back(x0);
-	} else if (list_dynamics_eval.size() == 0) {
+		list_dynamics_eval_ = vector<vectorDA>();
+		list_dynamics_eval_.reserve(N);
+	} else if (list_dynamics_eval.size() == 0)
 		list_dynamics_eval_ = list_dynamics_eval;
-	}
 
 	// Make first trajectory evaluation.
 
@@ -846,7 +845,8 @@ void DDPSolver::solve(
 			statedb x_kp1 = make_state(
 				Nx, Nu, x_kp1_DA, list_x_[i], list_u_init[i]);
 			list_x_.emplace_back(x_kp1);
-		}
+		} else 
+			list_x_[0] = x0;
 		
 		// Get cost to go
 

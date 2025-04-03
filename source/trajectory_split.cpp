@@ -87,7 +87,7 @@ TrajectorySplit TrajectorySplit::get_splited_trajectory(
     vectordb dx(modified_x0 - list_x_[0].nominal_state());
     double factor_perturbation(1.0);
     if (perturbation)
-        factor_perturbation -= 1e-2;
+        factor_perturbation += 2e-3;
 
     // Change lists
     output.list_x_[0].set_nominal_state(modified_x0);
@@ -98,7 +98,7 @@ TrajectorySplit TrajectorySplit::get_splited_trajectory(
         vectordb nominal_control(list_u_[i].nominal_control());
         matrixdb feedback_gain(list_u_[i].feedback_gain());
         vectordb du((feedback_gain*dx).extract(0, Nu - 1));
-        output.list_u_[i].set_nominal_control(nominal_control*factor_perturbation);
+        output.list_u_[i].set_nominal_control(nominal_control*factor_perturbation + du);
 
         // Change x_ip1 and dynamics eval
         vectorDA delta(identity);
@@ -151,7 +151,7 @@ pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
     TrajectorySplit trajectory_split_m1(this->get_splited_trajectory(
         get<1>(gmm_output[0]), get<2>(gmm_output[0]), DDPsolver, false));
     TrajectorySplit trajectory_split_p1(this->get_splited_trajectory(
-        get<1>(gmm_output[2]), get<2>(gmm_output[0]), DDPsolver, false));
+        get<1>(gmm_output[2]), get<2>(gmm_output[2]), DDPsolver, false));
 
     // History
     trajectory_split_m1.splitting_history_.back().second = -1;

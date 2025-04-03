@@ -174,7 +174,7 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
     Z_i /= np.max(Z_i)
 
     CS = ax.contourf(X, Y, Z_i, levels,
-        norm=clr.LogNorm(),
+        #norm=clr.LogNorm(),
         alpha=transparancy,
         cmap=cmap, zorder=-1)
     return CS
@@ -301,18 +301,19 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     dpi = 200
     
     # Axes
-    list_axis = [[0, 1], [3, 4]]
+    list_axis = [[3, 4]]
     if "halo" in dataset.file_name:
         list_axis = [[0, 1], [0, 2]]
     sampling = 4
     
     # Ellipses
     cmap = "plasma" 
-    ellipse_alpha = 1.0
+    ellipse_alpha = 0.8
     ellipse_nb_points = 604
     levels_min, levels_max = -5, 0
-    nb_levels = 6
+    nb_levels = 10
     ellipse_levels = [10**i for i in np.linspace(levels_min, levels_max, nb_levels)] 
+    ellipse_levels = np.linspace(0.1, 1, nb_levels)
     plot_CL = True
     if "mars" in dataset.file_name:
         ellipse_scale = 15
@@ -349,7 +350,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     color_sample = "#9a7bb5"
     maker_sample = "+"
     max_sample_size = 400
-    sample_alpha = 0.8
+    sample_alpha = 0.2
     marker_size = 30
     
     # Normalisation
