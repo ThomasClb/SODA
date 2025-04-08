@@ -276,12 +276,12 @@ void AULSolver::solve(
 		cout << "AUL solving - Homotopy coefficient [0, 1] : " << solver_parameters.homotopy_coefficient() << endl;
 		cout << "            - Huber-loss coefficient [0, 1] : " << solver_parameters.huber_loss_coefficient() << endl;
 		cout << "            - Target failure risk [%] : " << 100*transcription_beta << endl << endl;
-		cout << "SPLIT, α [%], NB SPLIT, β* [%], SUM β T [%], RUNTIME [s], ITER, DDP ITERA, FINAL MASS [kg], MAX CONSTRAINT, β d [%]" << endl;
+		cout << "SPLIT, α [%], NB SPLIT, β* [%], SUM β T [%], RUNTIME [s], ITER, DDP ITER, FINAL MASS [kg], MAX CONSTRAINT, β d [%]" << endl;
 	}
 
 	// Set quantiles
 	double beta_star(solver_parameters.transcription_beta());
-	double sum_beta_T(0);
+	d_th_order_failure_risk_ = 0;
 	this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 	this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 
@@ -333,7 +333,7 @@ void AULSolver::solve(
 		cost_ = cost;
 		AUL_n_iter_ = 0;
 		violation_ = cost;
-		d_th_order_failure_risk_ = 1.0;
+		double d_th_order_failure_risk_k = 1.0;
 		double duration_aul_split = 0.0;
 		int nb_split = 0;
 		while (loop && AUL_n_iter_ < AUL_max_iter) {
@@ -358,7 +358,7 @@ void AULSolver::solve(
 
 							// Split trajecectory_split_ at dir of vector 0
 							pair<TrajectorySplit, TrajectorySplit> new_traj = trajectory_split_.split(
-								dir, DDPsolver_);
+								dir, DDPsolver_);						
 
 							// Add 2 side splits to p_list_trajectory_split
 							p_list_trajectory_split->push_back(new_traj.first);
@@ -389,7 +389,7 @@ void AULSolver::solve(
 			list_ineq_ = DDPsolver_.list_ineq();
 			tineq_ = DDPsolver_.tineq();
 			cost_ = DDPsolver_.cost();
-			d_th_order_failure_risk_ = evaluate_risk();
+			d_th_order_failure_risk_k = evaluate_risk();
 
 			// Check constraints and that the solver is not stuck
 			double max_constraint_new = DDPsolver_.get_max_constraint_();
@@ -474,13 +474,13 @@ void AULSolver::solve(
 			<< 100*trajectory_split_.splitting_history().alpha() << ", " 
 			<< nb_split << ", "
 			<< 100*beta_star << ", " 
-			<< 100*sum_beta_T << ", "
+			<< 100*d_th_order_failure_risk_ << ", "
 			<< duration_aul_split << ", "
 			<< AUL_n_iter_ << ", "
 			<< DDP_n_iter_ << ", "
 			<< DDPsolver_.list_x()[N].nominal_state()[SIZE_VECTOR] * constants.massu() << ", "
 			<< violation_ << ", "
-			<< 100*d_th_order_failure_risk_ << endl;
+			<< 100*d_th_order_failure_risk_k << endl;
 		}
 
 		// Spread solution to nearby splits.
@@ -541,7 +541,7 @@ void AULSolver::solve(
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
     			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
   				for (size_t k=0; k<N+1; k++) {
-  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.01; // perturbation lambda
+  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.9; // perturbation lambda
   				}
     			list_lambda_mu[i] = list_lambda_mu_i;
 			}
@@ -566,7 +566,7 @@ void AULSolver::solve(
 		list_lambda_mu_.push_back(pair<vector<vectordb>,vector<vectordb>>(list_lambda_, list_mu_));
 
 		// Update beta_star
-		double beta_T_i(min(beta_star, d_th_order_failure_risk_));
+		double beta_T_i(min(beta_star, d_th_order_failure_risk_k));
 		double delta_i(beta_star-beta_T_i);
 		double alpha_i(trajectory_split_.splitting_history().alpha());
 		if (p_list_trajectory_split->size() > 0) {
@@ -575,7 +575,7 @@ void AULSolver::solve(
 			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 		}
-		sum_beta_T += d_th_order_failure_risk_*alpha_i;
+		d_th_order_failure_risk_ += d_th_order_failure_risk_k*alpha_i;
 	}
 	*p_list_trajectory_split = list_trajectory_split;
 
@@ -585,11 +585,11 @@ void AULSolver::solve(
 	if (verbosity < 1) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
 		cout << "Number of splits : " + to_string(p_list_trajectory_split->size()) << endl;
-		cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
+		cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;
 	}
 	else if (verbosity < 2) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
 		cout << "Number of splits : " + to_string(p_list_trajectory_split->size()) << endl;
-		cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
+		cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;
 	}
 }

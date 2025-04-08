@@ -51,10 +51,14 @@ if __name__ == "__main__":
     inv_beta = int(beta)
     if beta != 0:
         inv_beta = int(1.0/float(list_arguments[1]))
-    T2m_ratio = list_arguments[2]
-    ToF = int(list_arguments[3])
-    DDP_type = int(list_arguments[4])
-    show_sample = int(list_arguments[5])
+    LOADS_max_depth = float(list_arguments[1])
+    inv_LOADS_max_depth = int(LOADS_max_depth)
+    if LOADS_max_depth != 0:
+        inv_LOADS_max_depth = int(1.0/float(list_arguments[2]))
+    T2m_ratio = list_arguments[3]
+    ToF = int(list_arguments[4])
+    DDP_type = int(list_arguments[5])
+    show_sample = int(list_arguments[6])
     
     extra = "" # At the end of the file name.
     
@@ -83,8 +87,8 @@ if __name__ == "__main__":
     
     if extra != "":
         extra = "_" + extra
-    file_name_robust = file_name_robust + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + "_" + str(DDP_type) + extra + ".dat"
-    file_name_sample = file_name_sample + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + "_" + str(DDP_type) + extra + ".dat"
+    file_name_robust = file_name_robust + "_" + str(inv_beta) + "_" + str(inv_LOADS_max_depth) + "_" + T2m_ratio + "_" + str(ToF) + "_" + str(DDP_type) + extra + ".dat"
+    file_name_sample = file_name_sample + "_" + str(inv_beta) + "_" + str(inv_LOADS_max_depth) + "_" + T2m_ratio + "_" + str(ToF) + "_" + str(DDP_type) + extra + ".dat"
     
     # Keywords to generate 2d plots and thurst plot.
     list_2d = ["tbp", "lyapunov", "dro", "leo", "meo", "halo"]
@@ -108,7 +112,7 @@ if __name__ == "__main__":
     # Astrodynamics test cases.
     else:   
         plot_thrust_profile(dataset_robust, dataset_sample)
-        compute_LAM(dataset_robust, dataset_sample)
+        # compute_LAM(dataset_robust, dataset_sample)
         for i in list_2d:
             if i in file_name_robust:
                 plot_2d(dataset_robust, dataset_sample)

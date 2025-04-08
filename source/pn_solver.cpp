@@ -228,10 +228,10 @@ void PNSolver::solve(
 
 	// Set beta_star
 	double beta_star(solver_parameters_.transcription_beta());
-	double sum_beta_T(0);
 
 	// Loop on trajectory splits
 	double duration_total = 0.0;
+	d_th_order_failure_risk_ = 0;
 	double duration_pn = 0.0;
 	size_t K = p_list_trajectory_split->size();
 	for (int k=0; k<K; k++) {
@@ -244,7 +244,7 @@ void PNSolver::solve(
 		update_constraints_(x_goal, false);
 		violation_ = get_max_constraint_(INEQ_);
 		double continuity_violation = get_max_continuity_constraint_(INEQ_);
-		d_th_order_failure_risk_ = evaluate_risk();
+		double d_th_order_failure_risk_k = evaluate_risk();
 		
 		// Init loop
 		double cv_rate = 1e15;
@@ -266,15 +266,14 @@ void PNSolver::solve(
 			// Check termination constraints
 			bool converged = (
 				(violation_ == violation_prev && fact_conservatism == 1.0) || // No progress can be made
-				violation_ < constraint_tol && (fact_conservatism == 1.0 || d_th_order_failure_risk_ <= beta_star));
+				violation_ < constraint_tol && (fact_conservatism == 1.0 || d_th_order_failure_risk_k <= beta_star));
 			bool update_fact = 
 				(violation_ < constraint_tol*1000 || violation_ == violation_prev) &&
-				d_th_order_failure_risk_ > beta_star &&
+				d_th_order_failure_risk_k > beta_star &&
 				fact_conservatism < 1.0;
 
-			if (update_fact) {
+			if (update_fact)
 				fact_conservatism = update_path_quantile_(fact_conservatism, beta_star, false);
-			}
 			else if (converged)
 				break;
 
@@ -283,7 +282,7 @@ void PNSolver::solve(
 				update_constraints_(x_goal, false);
 				violation_ = get_max_constraint_(INEQ_);
 				continuity_violation = get_max_continuity_constraint_(INEQ_);
-				d_th_order_failure_risk_ = evaluate_risk();
+				d_th_order_failure_risk_k = evaluate_risk();
 			}
 
 			// Reset corrections
@@ -307,14 +306,14 @@ void PNSolver::solve(
 				// Termination checks
 				converged = (
 					violation_ < constraint_tol && 
-						(fact_conservatism == 1.0 || d_th_order_failure_risk_ <= beta_star));
+						(fact_conservatism == 1.0 || d_th_order_failure_risk_k <= beta_star));
 				if (converged || cv_rate < cv_rate_threshold)
 					break;
 
 				// Line search
 				violation_ = line_search_(x_goal, L, block_D, get<0>(constraints), violation_0);
 				continuity_violation = get_max_continuity_constraint_(INEQ_);
-				d_th_order_failure_risk_ = evaluate_risk();
+				d_th_order_failure_risk_k = evaluate_risk();
 
 				// Update cv_rate
 				cv_rate = log(violation_) / log(violation_0);
@@ -328,29 +327,29 @@ void PNSolver::solve(
 			cout << p_list_trajectory_split->at(k).splitting_history().to_string() << ", " 
 			<< 100*p_list_trajectory_split->at(k).splitting_history().alpha() << ", " 
 			<< 100*beta_star << ", " 
-			<< 100*sum_beta_T << ", "
+			<< 100*d_th_order_failure_risk_ << ", "
 			<< duration_pn << ", "
 			<< n_iter_ << ", "
 			<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
 			<< violation_ << ", "
-			<< 100*d_th_order_failure_risk_ << endl;
+			<< 100*d_th_order_failure_risk_k << endl;
 		}
 
 		// Update beta_star
-		d_th_order_failure_risk_ = evaluate_risk();
-		double beta_T_k(min(beta_star, d_th_order_failure_risk_));
+		d_th_order_failure_risk_k = evaluate_risk();
+		double beta_T_k(min(beta_star, d_th_order_failure_risk_k));
 		double delta_k(beta_star-beta_T_k);
 		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
 		if (k+1 < K) {
 			double alpha_kp1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
 			beta_star = min(1.0 - EPS, solver_parameters_.transcription_beta() + alpha_k/alpha_kp1*delta_k);
 		}
-		sum_beta_T += alpha_k*d_th_order_failure_risk_;
+		d_th_order_failure_risk_ += alpha_k*d_th_order_failure_risk_k;
 		duration_total += duration_pn;		
 	}
 	cout << "Runtime : " + to_string(duration_total) + "s" << endl;
 	cout << "Number of splits : " + to_string(K) << endl;
-	cout << "Beta T : " + to_string(sum_beta_T*100) + "%" << endl;
+	cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;
 
 	return;
 }

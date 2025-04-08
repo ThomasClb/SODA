@@ -152,9 +152,6 @@ void SODA::solve(
 		list_trajectory_split_.front().set_list_x(list_x);
 	}
 
-	// TO DO make Robust trajectory
-	// Mahalanobis distance
-
 	// Output
 	if (verbosity <= 2) {
 		cout << endl;
@@ -162,8 +159,9 @@ void SODA::solve(
 		cout << "	Total runtime : " + to_string(runtime_) + "s" << endl;
 		cout << "	AUL solver runtime : " + to_string(AUL_runtime_) + "s" << endl;
 		cout << "	PN solver runtime : " + to_string(PN_runtime_) + "s" << endl;
+		cout << "	NB SPLITS [-] : " << list_trajectory_split_.size() << endl;
 		cout << "	FINAL COST [-] : " << PNsolver_.cost() << endl;
 		cout << "	ERROR [-] : " << PNsolver_.violation() << endl;
-		cout << "	Dth-ORDER RISK [%] : " << 100*PNsolver_.d_th_order_failure_risk() << endl;
+		cout << "	β d [%] : " << 100*PNsolver_.d_th_order_failure_risk() << endl;
 	}
 }

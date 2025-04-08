@@ -29,7 +29,7 @@ ALPHA_1_GMM = 0.225224685253970 # Lateral weight [-]
 
 """    
 def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
-                           list_colors, list_markers,
+                           list_colors, list_markers, lims,
                            denormalise):    
     # Retrieve data
     nb_dataets = len(dataset.list_dataset_names)
@@ -58,13 +58,15 @@ def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
                   zorder=100)
 
     if index == N:
-        ax.scatter(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
-            s=10,
-            color=list_colors[1], marker=list_markers[1],
-                  zorder=100)
-        ax.text(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
-                " $x_t$",
-                  zorder=100)
+        if (data_arrival[axis_0, 0] > lims[0] and data_arrival[axis_0, 0] < lims[1] and
+            data_arrival[axis_1, 0] > lims[2] and data_arrival[axis_1, 0] < lims[3]):
+            ax.scatter(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
+                s=10,
+                color=list_colors[1], marker=list_markers[1],
+                      zorder=100)
+            ax.text(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
+                    " $x_t$",
+                      zorder=100)
 
 """
     Plots the projections of the uncertainty ellipsoïds of a transfer.
@@ -114,11 +116,8 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
 
     i = index_
     Z_i = np.zeros((nb_points,nb_points))
-    center_i_0 = np.array([0,0])
     list_alpha = []
-    list_center = []
-    list_quad = []
-
+    list_pg = []
     # Get mean + cov
     for k in range(nb_GMM):            
         # Get alpha
@@ -132,21 +131,25 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
                     alpha = alpha*ALPHA_1_GMM
         list_alpha.append(alpha)
         center = np.array([list_data_state[k][:,i][axis_0], list_data_state[k][:,i][axis_1]])
-        list_center.append(center)
 
         # Store covariance
-        Sigma = list_data_Sigma[0][:,i]
+        Sigma = list_data_Sigma[k][:,i]
         quad[0,0] = Sigma[axis_0 + d*axis_0]
         quad[1,1] = Sigma[axis_1 + d*axis_1]
         quad[0,1] = Sigma[axis_0 + d*axis_1]
         quad[1, 0] = quad[0,1]
-        list_quad.append(quad)
+
+        # Denormalise
+        if denormalise:
+            center *= LU
+            quad *= LU*LU
+
+        list_pg.append(multivariate_normal(mean=center, cov=quad))
+
     x_m, y_m = 0.5*(lims[0] + lims[1]), 0.5*(lims[2] + lims[3])
     dx, dy = (lims[1] - lims[0])/2, (lims[3] - lims[2])/2
     coef = 1.3
-    X_norm = np.linspace(x_m - coef*dx, x_m + coef*dx, nb_points)
-    Y_norm = np.linspace(y_m - coef*dy, y_m + coef*dy, nb_points)
-    X_norm, Y_norm = np.meshgrid(X_norm, Y_norm)
+    X_norm, Y_norm = np.meshgrid(np.linspace(x_m - coef*dx, x_m + coef*dx, nb_points), np.linspace(y_m - coef*dy, y_m + coef*dy, nb_points))
     pos_norm = np.dstack((X_norm, Y_norm))
     X = pos_norm[0,:,0]
     Y = pos_norm[:,0,1]
@@ -156,27 +159,15 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
         X *= LU
         Y *= LU
 
-    for k in range(nb_GMM):            
-        # Get projected cov
-        alpha = list_alpha[k]
-        quad = list_quad[k]
-        center = list_center[k]
-
-        # Denormalise
-        if denormalise:
-            center *= LU
-            quad *= LU*LU
-        
-        # Make pdfs
-        center = center
-        quad = quad
-        Z_i = Z_i + alpha*multivariate_normal.pdf(pos_norm, mean=center, cov=quad, allow_singular=False)
+    for k in range(nb_GMM):                    
+        # Add pdfs
+        Z_i = Z_i + list_alpha[k]*list_pg[k].pdf(pos_norm)
     Z_i /= np.max(Z_i)
 
     CS = ax.contourf(X, Y, Z_i, levels,
-        #norm=clr.LogNorm(),
         alpha=transparancy,
         cmap=cmap, zorder=-1)
+
     return CS
 
 
@@ -190,11 +181,8 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
 
     # Retrieve GMM size
     nb_GMM = int((nb_datasets - 2)/6)
-    list_coord_0 = []
-    list_coord_1 = []
     list_alpha = []
     list_data_Sigma = []
-    list_center = []
     list_inv_cov = []
     quad = np.zeros((2,2))
     x_min, x_max = 1e15, -1e15
@@ -204,37 +192,10 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
             if (dataset.list_dataset_names[i][0] == "Nominal state GMM " + str(k)):
                 data_state = dataset.list_datasets[i].copy()
                 list_names_state = dataset.list_dataset_names[i].copy()
-                list_coord_0.append(data_state[axis_0,:])
-                list_coord_1.append(data_state[axis_1,:])
-                list_center.append(np.array([data_state[axis_0,0], data_state[axis_1,0]]))
             elif (dataset.list_dataset_names[i][0] == "Sigma GMM " + str(k)):
                 data_Sigma = dataset.list_datasets[i].copy()
                 d = int(np.sqrt(len(data_Sigma[:,0])))
                 N = len(data_Sigma[0,:])
-                list_data_Sigma.append(data_Sigma)
-                Sigma = data_Sigma[:,0]
-                quad[0,0] = Sigma[axis_0 + d*axis_0]
-                quad[1,1] = Sigma[axis_1 + d*axis_1]
-                quad[0,1] = Sigma[axis_0 + d*axis_1]
-                quad[1, 0] = quad[0,1]
-                list_inv_cov.append(np.linalg.inv(quad))
-            elif (dataset.list_dataset_names[i][0] == "Splitting history GMM " + str(k)):
-                data_history = dataset.list_datasets[i].copy()
-                alpha = 1
-                if data_history.shape[1] != 0:
-                    for j in range(len(data_history[0,:])):
-                        if data_history[1,j] == 0:
-                            alpha = alpha*ALPHA_0_GMM
-                        elif abs(data_history[1,j]) == 1:
-                            alpha = alpha*ALPHA_1_GMM
-                list_alpha.append(alpha)
-
-    # Compute mean
-    coord_0 = list_alpha[0]*list_coord_0[0]
-    coord_1 = list_alpha[0]*list_coord_1[0]
-    for k in range(1, nb_GMM):
-        coord_0 = coord_0 + list_alpha[k]*list_coord_0[k]
-        coord_1 = coord_1 + list_alpha[k]*list_coord_1[k]
 
     # Get sample
     sample_size = min(max_sample_size, int(len(dataset_sample.list_dataset_names)/4))
@@ -297,11 +258,11 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
 def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     
     # Settings
-    plt.rcParams.update({'font.size': 10})
+    plt.rcParams.update({'font.size': 8})
     dpi = 200
     
     # Axes
-    list_axis = [[3, 4]]
+    list_axis = [[0, 1],[3, 4]]
     if "halo" in dataset.file_name:
         list_axis = [[0, 1], [0, 2]]
     sampling = 4
@@ -309,10 +270,9 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     # Ellipses
     cmap = "plasma" 
     ellipse_alpha = 0.8
-    ellipse_nb_points = 604
+    ellipse_nb_points = 404
     levels_min, levels_max = -5, 0
     nb_levels = 10
-    ellipse_levels = [10**i for i in np.linspace(levels_min, levels_max, nb_levels)] 
     ellipse_levels = np.linspace(0.1, 1, nb_levels)
     plot_CL = True
     if "mars" in dataset.file_name:
@@ -368,7 +328,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     show_grid = True
     save_figure = True
     saving_format = "pdf"
-    show_plot = True
+    show_plot = False
 
     # Retreive data
     nb_datasets = len(dataset.list_dataset_names)
@@ -402,14 +362,15 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         list_index_plot = [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)]
         list_index = [int(i/(sampling - 1)*N) for i in range(sampling)]
         shape = (2, 2)
-        fig, ax = plt.subplots(shape[0], shape[1], constrained_layout = True, dpi=dpi)
+        fig, ax = plt.subplots(shape[0], shape[1], dpi=dpi)
+        fig.subplots_adjust(wspace=0.25, hspace=0.25)
         for i, index in enumerate(list_index):
             ax_i = ax.flat[i]
 
             # Set labels
             ax_i.ticklabel_format(useMathText=True)
             
-            x_min, x_max, y_min, y_max = plot_sample(
+            lims = plot_sample(
                 dataset, dataset_sample, axis_0, axis_1, ax_i, index, 
                 plot_CL, max_sample_size,
                 maker_sample, sample_alpha, color_sample, marker_size,
@@ -418,30 +379,33 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
             # Plot state dispersion TO DO
             CS = plot_state_distribution(dataset, axis_0, axis_1, ax_i, index,
                 plot_CL, ellipse_nb_points,
-                ellipse_alpha, ellipse_levels, [x_min, x_max, y_min, y_max],
+                ellipse_alpha, ellipse_levels, lims,
                 cmap, denormalise)
 
             # Plot departure and arrival points
             plot_departure_arrival(dataset, axis_0, axis_1, ax_i,
                                    index,
                                    list_colors_departure_arrival,
-                                   list_markers_departure_arrival,
+                                   list_markers_departure_arrival, lims,
                                    denormalise)
 
             # lims
+            x_min, x_max, y_min, y_max = lims
             x_m, y_m = 0.5*(x_min + x_max), 0.5*(y_min + y_max)
             dx, dy = (x_max - x_min)/2, (y_max - y_min)/2
             coef = 1.3
             ax_i.set_xlim(x_m - coef*dx, x_m + coef*dx)
             ax_i.set_ylim(y_m - coef*dy, y_m + coef*dy)
-
             step_str = r"$t/ToF=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
-            ax_i.set_title(step_str)
+            ax_i.text(x_m - dx, y_m + dy,
+                    step_str,
+                    zorder=100)
 
             if show_grid:
                 ax_i.grid(alpha=0.5, color="#d3d3d3")
 
         # Color bar
+        
         cbar = fig.colorbar(CS, ax=ax, location="right")
         cbar.set_label("PDF [-]")
 
@@ -449,7 +413,8 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         fig.text(0.5, 0.04, list_names_state[axis_0 + 1], ha='center', va='center')
         fig.text(0.06, 0.5, list_names_state[axis_1 + 1], ha='center', va='center', rotation='vertical')
         
-        if show_legend: 
+
+        if show_legend:   
             plt.legend(loc=legend_loc)
         
         if save_figure:
@@ -458,7 +423,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
                 "robust_trajectory", "plots")
                     
             # Add signature
-            signature = ("_2d_" + str(axis_0) + "_" + str(axis_1)
+            signature = ("_2d_pdf_" + str(axis_0) + "_" + str(axis_1)
                 + "." + saving_format)
             file_name = file_name.replace(
                 ".dat", signature)

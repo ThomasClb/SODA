@@ -94,6 +94,12 @@ vectordb propagate_trajectory(
 	// Find nominal trajectory
 	vector<pair<double, size_t>> list_maha = robust_trajectory.get_mahalanobis_distance(x_0_sample);
 	size_t index_nominal(list_maha[0].second);
+	if (index_nominal == 2)  {
+		for (size_t i=0; i<list_maha.size(); i++) {
+			//cout << list_maha[i].second << ", " << list_maha[i].first << endl;
+		}
+	}
+
 
 	// TO DO other method
 	vector<statedb> list_x(robust_trajectory[index_nominal].list_x());
@@ -108,8 +114,11 @@ vectordb propagate_trajectory(
 		statedb x = list_x[i];
 		vectordb dx = x_sample - x.nominal_state();
 
-		// TO DO feedback gain computation type
+		if (index_nominal == 2)  {
+			//cout << dx.extract(0,5).vnorm() << endl;
+		}
 
+		// TO DO feedback gain computation type
 		vectordb du = (u.feedback_gain()*dx).extract(0, Nu-1);
 		vectordb u_sample = u.nominal_control() + du;
 
@@ -170,23 +179,32 @@ vectordb propagate_trajectory(
 		for (size_t j=0; j<Nineq; j++) {
 			if (constraints[j]>max_constraint)
 				max_constraint = constraints[j];
+			if (constraints[j] > 0) {
+				//cout << "Path : " << constraints[j] << ", ";
+			}
 		}
 	}
 	constraints = list_constraints[N];
 	for (size_t j=0; j<Ntineq; j++) {
 		if (constraints[j]>max_constraint)
 			max_constraint = constraints[j];
+		if (constraints[j] > 0) {
+			//cout << "Term : " << constraints[j] << ", ";
+		}
 	}
+	//cout << endl;
 
 	// Output
-	vectordb output(2);
+	vectordb output(3);
 	if (test_case_id != 0) {
 		output[0] = list_x_sample[N][SIZE_VECTOR]*massu;
 		output[1] = max_constraint;
+		output[2] = list_maha[0].first;
 	}
 	else {
 		output[0] = cost;
 		output[1] = 0;
+		output[2] = 0;
 	}
 
 	return output;
@@ -322,18 +340,25 @@ vector<vector<matrixdb>>  test_trajectory(
 	if (verbosity < 3) {
 		if (test_case_id != 0) {
 			cout << "	Run time [s]: " << to_string(static_cast<double>(duration.count()) / 1e6) << endl;
-			cout << "	Value - Final wet mass [kg] - Contraints violation [-]" << endl;
+			cout << "	Value - Final wet mass [kg] - Contraints violation [-] - Min distance to a mixand [σ]" << endl;
 			cout << "	Nominal - "
 				<< nominal_results[0] - spacecraft_parameters.dry_mass()*massu
-				<< " - " << nominal_results[1] << endl;
+				<< " - " << nominal_results[1] 
+				<< " - " << nominal_results[2] 
+				<< endl;
 			cout << "	MC - "
 				<< mean_results[0] - spacecraft_parameters.dry_mass()*massu 
 				<< " +/- " << std_results[0] 
 				<< " - " << mean_results[1] 
-				<< " +/- " << std_results[1] << endl;
+				<< " +/- " << std_results[1] 
+				<< " - " << mean_results[2] 
+				<< " +/- " << std_results[2] 
+				<< endl;
 			cout << "	Expected Beta quantile - "
 				<< mean_results[0] - spacecraft_parameters.dry_mass()*massu - quantile_bound_traj*std_results[0] 
-				<< " - " << nominal_results[1] + quantile_bound_traj*std_results[1] << endl;
+				<< " - " << mean_results[1] + quantile_bound_traj*std_results[1] 
+				<< " - " << mean_results[2] + quantile_bound_traj*std_results[2] 
+				<< endl;
 
 			cout << "	Failed samples [-]: " << failed_samples << endl;
 			cout << "	Failure rate [%] " << 100*beta_r 
@@ -367,6 +392,7 @@ vector<vector<matrixdb>>  test_trajectory(
 			cout << solver_parameters.transcription_beta() << ", ";
 		else
 			cout << 1.0 << ", ";
+		cout << solver_parameters.LOADS_max_depth() << ", ";
 
 		// Data
 
@@ -387,6 +413,8 @@ vector<vector<matrixdb>>  test_trajectory(
 		cout << solver.DDP_n_iter() << ", ";
 		cout << solver.AUL_n_iter() << ", ";
 		cout << solver.PN_n_iter() << ", ";
+		cout << robust_trajectory.size() << ", ";
+		cout << solver.d_th_order_failure_risk() << ", ";
 
 		// MC properties
 		cout << size_sample << ", ";
@@ -402,6 +430,11 @@ vector<vector<matrixdb>>  test_trajectory(
 			cout << mean_results[1] << ", ";
 			cout << std_results[1] << ", ";
 			cout << mean_results[1] + quantile_bound_traj*std_results[1] << ", ";	
+			
+			// Min distance to mixand
+			cout << mean_results[2] << ", ";
+			cout << std_results[2] << ", ";
+			cout << mean_results[2] + quantile_bound_traj*std_results[2] << ", ";	
 
 			// Beta r
 			cout << beta_r << ", ";
@@ -424,6 +457,9 @@ vector<vector<matrixdb>>  test_trajectory(
 			cout << mean_results[0] + quantile_bound_traj*std_results[0] << ", ";
 
 			// Error
+			cout << "-, -, -, ";
+
+			// Min distance to mixand
 			cout << "-, -, -, ";
 
 			// Beta r

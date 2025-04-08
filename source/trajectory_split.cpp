@@ -87,7 +87,7 @@ TrajectorySplit TrajectorySplit::get_splited_trajectory(
     vectordb dx(modified_x0 - list_x_[0].nominal_state());
     double factor_perturbation(1.0);
     if (perturbation)
-        factor_perturbation += 2e-3;
+        factor_perturbation += 1e-4;
 
     // Change lists
     output.list_x_[0].set_nominal_state(modified_x0);

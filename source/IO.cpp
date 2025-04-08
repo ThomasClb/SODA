@@ -210,11 +210,13 @@ void print_sample_trajectory_dataset(
 	int inv_beta = 1/solver_parameters.transcription_beta();
 	if (!robust_solving)
 		inv_beta = 0;
+	int inv_LOADS_max_depth = 1.0/solver_parameters.LOADS_max_depth();
 	int exposant = log10(thrust_mass);
 	int mantisse = static_cast<int>(thrust_mass) / static_cast<int>(pow(10, exposant));
 	string str_T2m = to_string(mantisse) + "e" + to_string(exposant - power);
 	string file_name_ = file_name + "_"
 		+ to_string(inv_beta) + "_"
+		+ to_string(inv_LOADS_max_depth) + "_"
 		+ str_T2m + "_"
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())
@@ -355,7 +357,8 @@ void print_robust_trajectory_dataset(
 	double thrust_mass = ((spacecraft_parameters.thrust() * spacecraft_parameters.constants().thrustu()
 		/ (spacecraft_parameters.initial_mass() * spacecraft_parameters.constants().massu())
 		) * pow(10.0, power));
-	int inv_beta = 1/solver_parameters.transcription_beta();
+	int inv_beta = 1.0/solver_parameters.transcription_beta();
+	int inv_LOADS_max_depth = 1.0/solver_parameters.LOADS_max_depth();
 	if (!robust_solving)
 		inv_beta = 0;
 	int exposant = log10(thrust_mass);
@@ -363,6 +366,7 @@ void print_robust_trajectory_dataset(
 	string str_T2m = to_string(mantisse) + "e" + to_string(exposant - power);
 	string file_name_ = file_name + "_"
 		+ to_string(inv_beta) + "_"
+		+ to_string(inv_LOADS_max_depth) + "_"
 		+ str_T2m + "_"
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())
@@ -391,6 +395,7 @@ RobustTrajectory load_robust_trajectory(
 		/ (spacecraft_parameters.initial_mass() * spacecraft_parameters.constants().massu())
 		) * pow(10.0, power));
 	int inv_beta = 1/solver_parameters.transcription_beta();
+	int inv_LOADS_max_depth = 1.0/solver_parameters.LOADS_max_depth();
 	if (!robust_solving)
 		inv_beta = 0;
 	int exposant = log10(thrust_mass);
@@ -398,6 +403,7 @@ RobustTrajectory load_robust_trajectory(
 	string str_T2m = to_string(mantisse) + "e" + to_string(exposant - power);
 	string file_name_ = file_name + "_"
 		+ to_string(inv_beta) + "_"
+		+ to_string(inv_LOADS_max_depth) + "_"
 		+ str_T2m + "_"
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())

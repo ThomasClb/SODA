@@ -18,7 +18,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	unsigned int const& N, unsigned int const& DDP_type,
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
-	double const& transcription_beta,
+	double const& transcription_beta, double const& LOADS_max_depth,
 	unsigned int verbosity) {
 	// Solver parameters
 	unsigned int Nx = (SIZE_VECTOR + 1) + 1;
@@ -40,12 +40,11 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
-	double LOADS_tol = 1e-3;
-	double LOADS_max_depth = 0.9;
+	double LOADS_tol = 1e-4;
 	double PN_active_constraint_tol = 1e-15;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
-	unsigned int AUL_max_iter = 25;
+	unsigned int AUL_max_iter = 15;
 	unsigned int PN_max_iter = 1000;
 	vectordb lambda_parameters{0.0, 1e8};
 	vectordb mu_parameters{1, 1e8, 10};
@@ -82,7 +81,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 
 void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	// Input check
-	if (argc < 13) {
+	if (argc < 14) {
 		cout << "Wrong number of arguments." << endl;
 		cout << "Requested number : 9" << endl;
 		cout << "0 - Test case number." << endl;
@@ -92,12 +91,13 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 		cout << "4 - Time of flight [days]." << endl;
 		cout << "5 - Perform robust optimisation [0/1]." << endl;
 		cout << "6 - Target failure risk [0, 1]." << endl;
-		cout << "7 - Perform fuel-optimal optimisation [0/1]." << endl;
-		cout << "8 - Perform projected Newton solving [0/1]." << endl;
-		cout << "9 - Save results [0/1]." << endl;
-		cout << "10 - Load trajectory [0/1]." << endl;
-		cout << "11 - MC sample  size [-]." << endl;
-		cout << "12 - Verbosity [0-2]." << endl;
+		cout << "7 - LOADS max depth [0, 1]." << endl;
+		cout << "8 - Perform fuel-optimal optimisation [0/1]." << endl;
+		cout << "9 - Perform projected Newton solving [0/1]." << endl;
+		cout << "10 - Save results [0/1]." << endl;
+		cout << "11 - Load trajectory [0/1]." << endl;
+		cout << "12 - MC sample  size [-]." << endl;
+		cout << "13 - Verbosity [0-2]." << endl;
 		return;
 	}
 
@@ -108,17 +108,18 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	double ToF = atof(argv[5]);
 	bool robust_solving = false;
 	double transcription_beta = atof(argv[7]);
+	double LOADS_max_depth = atof(argv[8]);
 	bool fuel_optimal = false;
 	bool pn_solving = false;
 	bool save_results = false;
 	bool load_trajectory = false;
-	unsigned int size_sample = atoi(argv[12]);
-	int verbosity = atoi(argv[13]);
+	unsigned int size_sample = atoi(argv[13]);
+	int verbosity = atoi(argv[14]);
 	if (atoi(argv[6]) == 1) { robust_solving = true; }
-	if (atoi(argv[8]) == 1) { fuel_optimal = true; }
-	if (atoi(argv[9]) == 1) { pn_solving = true; }
-	if (atoi(argv[10]) == 1) { save_results = true; }
-	if (atoi(argv[11]) == 1) { load_trajectory = true; }
+	if (atoi(argv[9]) == 1) { fuel_optimal = true; }
+	if (atoi(argv[10]) == 1) { pn_solving = true; }
+	if (atoi(argv[11]) == 1) { save_results = true; }
+	if (atoi(argv[12]) == 1) { load_trajectory = true; }
 
 	// Set double precision
 	typedef std::numeric_limits<double> dbl;
@@ -140,7 +141,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Uncertainties
 	double position_error = 10/lu; double velocity_error = 0.1/vu;
-	position_error = 10/lu; velocity_error = 1e-3/vu;
+	position_error = 10/lu; velocity_error = 1e-2/vu;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error/100,
 		velocity_error, velocity_error, velocity_error/100,
@@ -148,11 +149,11 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = 1e9/lu/lu; terminal_velocity_error_sqr = 1e-4/vu/vu; 
+	terminal_position_error_sqr = 1e7/lu/lu; terminal_velocity_error_sqr = 1e-2/vu/vu; 
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
-		transcription_beta, verbosity);
+		transcription_beta, LOADS_max_depth, verbosity);
 
 	// Solver parameters
 	unsigned int Nx = solver_parameters.Nx();
