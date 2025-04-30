@@ -190,8 +190,10 @@ SolverParameters::SolverParameters() :
 	size_t size_terminal(Ntineq_);
 
 	// Init DACE
-	DA::init(3, Nx_ + Nu_);
-	DA::setEps(1e-90);
+	if (!DA::isInitialized()) {
+		DA::init(3, Nx_ + Nu_);
+		DA::setEps(1e-90);
+	}
 
 	// Quantiles
 	path_quantile_ = sqrt(inv_chi_2_cdf(Nineq_ + 1, 1 - transcription_beta_));
@@ -270,9 +272,10 @@ SolverParameters::SolverParameters(
 	size_t size_terminal( Ntineq_);
 
 	// Init DACE
-	DA::init(3, Nx_ + Nu_);
-	DA::setEps(1e-90);
-
+	if (!DA::isInitialized()) {
+		DA::init(3, Nx_ + Nu_);
+		DA::setEps(1e-90);
+	}
 	// Quantiles
 	path_quantile_ = sqrt(inv_chi_2_cdf(Nineq_ + 1, 1 - transcription_beta_));
 	terminal_quantile_ = sqrt(inv_chi_2_cdf(Ntineq_ + 1, 1 - transcription_beta_));
@@ -326,8 +329,10 @@ SolverParameters::SolverParameters(SolverParameters const& param) :
 	verbosity_(param.verbosity_), saving_iterations_(param.saving_iterations_) {
 
 	// Init DACE
-	DA::init(3, Nx_ + Nu_);
-	DA::setEps(1e-90);
+	if (!DA::isInitialized()) {
+		DA::init(3, Nx_ + Nu_);
+		DA::setEps(1e-90);
+	}
 }
 
 // Destructor

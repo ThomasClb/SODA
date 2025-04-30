@@ -27,30 +27,30 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	unsigned int Ntineq = 1;
 	bool with_J2 = false;
 	double cost_to_go_gain = 1e-2;
-	double terminal_cost_gain = 2e4; // 1e5 for transcription versus
-	matrixdb terminal_cost_inv_covariance = inv(make_diag_matrix_(
+	double terminal_cost_gain = 1e4;
+	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
-			position_error_sqr, position_error_sqr, position_error_sqr,
-			velocity_error_sqr, velocity_error_sqr, velocity_error_sqr}));
+			1/position_error_sqr, 1/position_error_sqr, 1/(position_error_sqr/100),
+			1/velocity_error_sqr, 1/velocity_error_sqr, 1/(velocity_error_sqr/100)});
 	double mass_leak = 1e-4;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
 	vectordb homotopy_sequence{0, 0.5, 0.9, 0.999}; 
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 5e-3, 1e-3};
+	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 2e-3};
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
-	double LOADS_tol = 1e-4;
+	double LOADS_tol = 1e-3;
 	double PN_active_constraint_tol = 1e-15;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
-	unsigned int AUL_max_iter = 15;
-	unsigned int PN_max_iter = 1000;
+	unsigned int AUL_max_iter = 25;
+	unsigned int PN_max_iter = 10000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 10};
+	vectordb mu_parameters{1, 1e8, 5};
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
-	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.6};
+	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e20, 1.6};
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
@@ -141,7 +141,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Uncertainties
 	double position_error = 10/lu; double velocity_error = 0.1/vu;
-	position_error = 10/lu; velocity_error = 1e-2/vu;
+	position_error = 1e-6; velocity_error = 1e-4;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error/100,
 		velocity_error, velocity_error, velocity_error/100,
@@ -149,7 +149,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = 1e7/lu/lu; terminal_velocity_error_sqr = 1e-2/vu/vu; 
+	terminal_position_error_sqr = sqr(1e-5); terminal_velocity_error_sqr = sqr(1e-5);
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),

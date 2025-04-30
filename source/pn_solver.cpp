@@ -168,6 +168,9 @@ void PNSolver::update_robust_trajectory(
 double PNSolver::update_path_quantile_(
 	double const& fact_conservatism,
 	double const& beta_star,
+	double const& beta_d,
+	double const& violation,
+	double const& violation_prev,
 	bool const& init) {
 	// Unpack
 	unsigned int N = solver_parameters_.N();
@@ -175,22 +178,30 @@ double PNSolver::update_path_quantile_(
 	unsigned int Nu = solver_parameters_.Nu();
 	unsigned int Nineq = solver_parameters_.Nineq();
 	unsigned int Ntineq = solver_parameters_.Ntineq();
+	double PN_tol = solver_parameters_.PN_tol();
+	double AUL_tol = solver_parameters_.AUL_tol();
+	size_t dim = N*Nineq + Ntineq;
 
+	// Params
+	double init_value = 0.2;
+	double max_step = 0.2;
+	double min_step = 1e-3;
+	double diff = beta_d - beta_star;
 
-	if (init) {
-		double fact_conservatism_ = 1.0/(N*Nineq + Ntineq*1.0);
+	// Compute new factor
+	double fact_conservatism_;
+	double step = max(min_step, min(max_step, max_step*sqr(diff)));
+	if (init)
+		fact_conservatism_ = init_value;
+	else
+		fact_conservatism_ = max(init_value, min(1.0, fact_conservatism + step));
+
+	// Update value if needed.
+	if (fact_conservatism_ != fact_conservatism) {
 		solver_parameters_.set_path_quantile(
-			sqrt(inv_chi_2_cdf(
-				fact_conservatism_*(N*Nineq + Ntineq),
-				1 - beta_star)));
-		return fact_conservatism_;
+			sqrt(inv_chi_2_cdf((int)(dim*fact_conservatism_), 1 - beta_star))); // TO DO mettre dans la dim
 	}
-	double fact_conservatism_ = fact_conservatism + 0.1;
-	fact_conservatism_ = min(1.0, fact_conservatism_);
-	solver_parameters_.set_path_quantile(
-		sqrt(inv_chi_2_cdf(
-			fact_conservatism_*(N*Nineq + Ntineq),
-			1 - beta_star)));
+
 	return fact_conservatism_;
 }
 
@@ -212,6 +223,7 @@ void PNSolver::solve(
 	double cv_rate_threshold = solver_parameters_.PN_cv_rate_threshold();
 	unsigned int verbosity = solver_parameters_.verbosity();
 	Constants constants = dynamics_.constants();
+	DA::setTO(2);
 
 	// Output
 	if (verbosity < 1) {
@@ -234,22 +246,28 @@ void PNSolver::solve(
 	d_th_order_failure_risk_ = 0;
 	double duration_pn = 0.0;
 	size_t K = p_list_trajectory_split->size();
+	double d_th_order_failure_risk_k  = 1.0;
 	for (int k=0; k<K; k++) {
+		// Init loop
+		double cv_rate = 1e15;
+		double violation_prev = 1e15;
+		n_iter_ = 0;
 		set_list_x_u(p_list_trajectory_split->at(k));
 
 		// Set quantiles
-		double fact_conservatism = update_path_quantile_(0, beta_star, true);
+		double fact_conservatism = update_path_quantile_(
+			1.0,
+			beta_star, d_th_order_failure_risk_k,
+			violation_, violation_prev,
+			true);
 
 		// Evaluate constraints
 		update_constraints_(x_goal, false);
 		violation_ = get_max_constraint_(INEQ_);
 		double continuity_violation = get_max_continuity_constraint_(INEQ_);
-		double d_th_order_failure_risk_k = evaluate_risk();
+		d_th_order_failure_risk_k = evaluate_risk();
 		
-		// Init loop
-		double cv_rate = 1e15;
-		double violation_prev = 1e15;
-		n_iter_ = 0;
+		
 		auto start = high_resolution_clock::now();
 		auto stop = high_resolution_clock::now();
 		duration_pn = 0.0;
@@ -258,7 +276,7 @@ void PNSolver::solve(
 
 			// Output
 			stop = high_resolution_clock::now();
-			double duration =static_cast<double>((duration_cast<microseconds>(stop - start)).count()) / 1e6;
+			double duration = static_cast<double>((duration_cast<microseconds>(stop - start)).count()) / 1e6;
 			duration_pn += duration;
 			string duration_str = to_string(duration);
 			start = high_resolution_clock::now();
@@ -268,12 +286,17 @@ void PNSolver::solve(
 				(violation_ == violation_prev && fact_conservatism == 1.0) || // No progress can be made
 				violation_ < constraint_tol && (fact_conservatism == 1.0 || d_th_order_failure_risk_k <= beta_star));
 			bool update_fact = 
-				(violation_ < constraint_tol*1000 || violation_ == violation_prev) &&
+				(violation_ < constraint_tol*1e3 || violation_ == violation_prev) &&
 				d_th_order_failure_risk_k > beta_star &&
 				fact_conservatism < 1.0;
 
-			if (update_fact)
-				fact_conservatism = update_path_quantile_(fact_conservatism, beta_star, false);
+			if (update_fact) {
+				fact_conservatism = update_path_quantile_(
+					fact_conservatism,
+					beta_star, d_th_order_failure_risk_k,
+					violation_, violation_prev,
+					false);
+			}
 			else if (converged)
 				break;
 
@@ -313,11 +336,19 @@ void PNSolver::solve(
 				// Line search
 				violation_ = line_search_(x_goal, L, block_D, get<0>(constraints), violation_0);
 				continuity_violation = get_max_continuity_constraint_(INEQ_);
-				d_th_order_failure_risk_k = evaluate_risk();
 
 				// Update cv_rate
 				cv_rate = log(violation_) / log(violation_0);
 				violation_0 = violation_;
+			}
+			if (verbosity == 1 && n_iter_%10 == 0) {
+				cout << "	" << fact_conservatism << ", " 
+				<< 100*beta_star << ", "
+				<< 100*d_th_order_failure_risk_k << ", "
+				<< n_iter_ << ", "
+				<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
+				<< violation_ << ", "
+				<< endl;
 			}
 		}
 		update_robust_trajectory(p_list_trajectory_split, k);
@@ -438,9 +469,13 @@ double PNSolver::evaluate_risk() {
 	unsigned int N = solver_parameters_.N();
 	unsigned int Nx = solver_parameters_.Nx();
 	unsigned int Nu = solver_parameters_.Nu();
+	unsigned int Nineq = solver_parameters_.Nineq();
+	unsigned int Ntineq = solver_parameters_.Ntineq();
 	
 	// Get diag and mean
 	vectordb mean, norm_vector;
+	mean.reserve(N*(Nineq) + Ntineq);
+	norm_vector.reserve(N*Nineq + Ntineq);
 	matrixdb D_f, Sigma;
 	vector<matrixdb> list_der;
 	vectordb constraints_eval;

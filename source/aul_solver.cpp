@@ -373,6 +373,15 @@ void AULSolver::solve(
 				}
 			}
 
+			// Solution perturbation
+			vector<controldb> list_u(trajectory_split_.list_u());
+			for (size_t i=0; i<N; i++) {
+		        // Fix u_i
+		        vectordb u_i = trajectory_split_.list_u()[i].nominal_control();
+		        list_u[i].set_nominal_control(u_i*(1.0 - AUL_tol));
+		    }
+		    trajectory_split_.set_list_u(list_u);
+
 			// Solve DDP problem
 			auto start = high_resolution_clock::now();
 			DDPsolver_.solve(
@@ -541,7 +550,7 @@ void AULSolver::solve(
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
     			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
   				for (size_t k=0; k<N+1; k++) {
-  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.9; // perturbation lambda
+  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.95; // perturbation lambda
   				}
     			list_lambda_mu[i] = list_lambda_mu_i;
 			}
@@ -571,7 +580,7 @@ void AULSolver::solve(
 		double alpha_i(trajectory_split_.splitting_history().alpha());
 		if (p_list_trajectory_split->size() > 0) {
 			double alpha_ip1(p_list_trajectory_split->at(0).splitting_history().alpha());
-			beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
+			// beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
 			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 		}

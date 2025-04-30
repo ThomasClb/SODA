@@ -98,6 +98,9 @@ public:
 	double update_path_quantile_(
 		double const& fact_conservatism,
 		double const& beta_star,
+		double const& beta_d,
+		double const& violation,
+		double const& violation_prev,
 		bool const& init);
 
 	// Solves the optimisation problem with a projected Newton method

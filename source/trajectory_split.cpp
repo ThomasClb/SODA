@@ -85,9 +85,6 @@ TrajectorySplit TrajectorySplit::get_splited_trajectory(
     size_t Nu(list_u_[0].nominal_control().size());
     TrajectorySplit output(*this);
     vectordb dx(modified_x0 - list_x_[0].nominal_state());
-    double factor_perturbation(1.0);
-    if (perturbation)
-        factor_perturbation += 1e-4;
 
     // Change lists
     output.list_x_[0].set_nominal_state(modified_x0);
@@ -98,7 +95,7 @@ TrajectorySplit TrajectorySplit::get_splited_trajectory(
         vectordb nominal_control(list_u_[i].nominal_control());
         matrixdb feedback_gain(list_u_[i].feedback_gain());
         vectordb du((feedback_gain*dx).extract(0, Nu - 1));
-        output.list_u_[i].set_nominal_control(nominal_control*factor_perturbation + du);
+        output.list_u_[i].set_nominal_control((nominal_control + du));
 
         // Change x_ip1 and dynamics eval
         vectorDA delta(identity);
