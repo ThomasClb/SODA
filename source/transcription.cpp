@@ -17,6 +17,7 @@ using namespace std;
 vectorDA dth_order_inequality_transcription( // PN version
 	vectorDA const& constraints_eval,
 	vector<matrixdb> const& list_Sigma, vector<matrixdb> const& list_feedback_gain,
+	double const& fact_conservatism,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters) {
 	// Unpack
@@ -28,7 +29,8 @@ vectorDA dth_order_inequality_transcription( // PN version
 	double tol = solver_parameters.PN_tol();
 	double eps(EPS);
 	size_t d = N*Nineq + Ntineq;
-	double path = solver_parameters.path_quantile();
+	double quantile = solver_parameters.path_quantile();
+	double beta_star = 1 - chi_2_cdf(d, sqr(quantile));
 
 	// Init
 	vectorDA output(constraints_eval);
@@ -44,11 +46,11 @@ vectorDA dth_order_inequality_transcription( // PN version
 
 		// Compute the contraints covariance
 		matrixDA D_f = (list_der[0] + list_der[1] * list_feedback_gain[k]);
-		matrixDA Sigma = D_f*list_Sigma[k]*D_f.transpose(); // TO DO optimize
+		matrixDA prod_k = D_f*list_Sigma[k];
 
 		// Assign
 		for (size_t i=0; i<Nineq; i++) {
-			norm_vector[k*Nineq + i] = Sigma.at(i,i);
+			norm_vector[k*Nineq + i] = vectorDA(prod_k.getrow(i)).dot(vectorDA(D_f.getrow(i)));
 		}
 	}
 
@@ -61,22 +63,46 @@ vectorDA dth_order_inequality_transcription( // PN version
 
 	// Compute the contraints covariance
 	matrixDA D_f = list_der[0];
-	matrixDA Sigma = D_f*list_Sigma[N]*D_f.transpose(); // TO DO optimize
+	matrixDA prod_N = D_f*list_Sigma[N];
 
 	// Assign
 	for (size_t i=0; i<Ntineq; i++) {
-		norm_vector[N*Nineq + i] = Sigma.at(i,i);
+		norm_vector[N*Nineq + i] = vectorDA(prod_N.getrow(i)).dot(vectorDA(D_f.getrow(i)));
 	}
 
+	// Get min and max
+	vectordb norm_vector_cons(norm_vector.cons());
+	double min_norm(1e15), max_norm(0);
+	for (size_t i=0; i<norm_vector_cons.size(); i++) {
+		double norm_vector_cons_i(norm_vector_cons[i]);
+		if (norm_vector_cons_i > max_norm)
+			max_norm = norm_vector_cons_i;
+		else if (norm_vector_cons_i < min_norm)
+			min_norm = norm_vector_cons_i;
+	}
+	if (max_norm != 0)
+		max_norm = sqrt(max_norm);
+	if (min_norm != 0)
+		min_norm = sqrt(min_norm);
+
+	// Make scalling conservatism
+	double a = (1 - fact_conservatism)/(max_norm - min_norm);
+	double b = 1 - max_norm*a;
+
 	// Build output vector
-	vectorDA list_beta_d(N+1);
 	for (size_t k=0; k<N; k++) {
 		// Assign
 		for (size_t i=0; i<Nineq; i++) {
 			size_t index(k*Nineq + i);
-			if (norm_vector[index].cons() > 0)
-				output[index] += path*sqrt(norm_vector[index]);
-			else if (norm_vector[index].cons() == 0 && output[index].cons() <= 0)
+			DA norm_vector_i(norm_vector[index]);
+			double norm_vector_cons_i(norm_vector_i.cons());
+
+			if (norm_vector_cons_i > 0) {
+				double fact_conservatism_i = a*sqrt(norm_vector_cons_i) + b;
+				quantile = sqrt(inv_chi_2_cdf((int)(d*fact_conservatism_i), 1 - beta_star));
+				output[index] += quantile*sqrt(norm_vector_i);
+			}
+			else if (norm_vector_cons_i == 0 && output[index].cons() <= 0)
 				output[index] = -1e15;
 		}
 	}
@@ -86,10 +112,16 @@ vectorDA dth_order_inequality_transcription( // PN version
 	// Assign
 	for (size_t i=0; i<Ntineq; i++) {	
 		size_t index(N*Nineq + i);
-		if (norm_vector[index].cons() > 0)
-			output[index] += path*sqrt(norm_vector[index]);
-		else if (norm_vector[index].cons() == 0 && output[index].cons() <= 0)
-				output[index] = -1e15;
+		DA norm_vector_i(norm_vector[index]);
+		double norm_vector_cons_i(norm_vector_i.cons());
+
+		if (norm_vector_cons_i > 0) {
+			double fact_conservatism_i = a*sqrt(norm_vector_cons_i) + b;
+			quantile = sqrt(inv_chi_2_cdf((int)(d*fact_conservatism_i), 1 - beta_star));
+			output[index] += quantile*sqrt(norm_vector_i);
+		}
+		else if (norm_vector_cons_i == 0 && output[index].cons() <= 0)
+			output[index] = -1e15;
 	}
 
 	return output;

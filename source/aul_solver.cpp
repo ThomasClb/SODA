@@ -580,7 +580,7 @@ void AULSolver::solve(
 		double alpha_i(trajectory_split_.splitting_history().alpha());
 		if (p_list_trajectory_split->size() > 0) {
 			double alpha_ip1(p_list_trajectory_split->at(0).splitting_history().alpha());
-			// beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
+			beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
 			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
 			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 		}

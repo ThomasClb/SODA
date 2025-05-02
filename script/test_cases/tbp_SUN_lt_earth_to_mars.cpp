@@ -30,13 +30,13 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double terminal_cost_gain = 1e4;
 	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
-			1/position_error_sqr, 1/position_error_sqr, 1/(position_error_sqr/100),
-			1/velocity_error_sqr, 1/velocity_error_sqr, 1/(velocity_error_sqr/100)});
+			1/position_error_sqr, 1/position_error_sqr, 1/(position_error_sqr),
+			1/velocity_error_sqr, 1/velocity_error_sqr, 1/(velocity_error_sqr)});
 	double mass_leak = 1e-4;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.999}; 
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 2e-3};
+	vectordb homotopy_sequence{0, 0.5, 0.9, 0.99}; 
+	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 1e-3};
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
@@ -44,10 +44,10 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double PN_active_constraint_tol = 1e-15;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
-	unsigned int AUL_max_iter = 25;
-	unsigned int PN_max_iter = 10000;
+	unsigned int AUL_max_iter = 50;
+	unsigned int PN_max_iter = 1000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 5};
+	vectordb mu_parameters{1, 1e8, 3};
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
 	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e20, 1.6};
@@ -149,7 +149,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = sqr(1e-5); terminal_velocity_error_sqr = sqr(1e-5);
+	terminal_position_error_sqr = sqr(1e-4); terminal_velocity_error_sqr = sqr(5e-5);
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
