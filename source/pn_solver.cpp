@@ -244,8 +244,6 @@ void PNSolver::solve(
 	size_t K = p_list_trajectory_split->size();
 	 
 	reverse(p_list_trajectory_split->begin(), p_list_trajectory_split->end());
-
-
 	double d_th_order_failure_risk_k  = 1.0;
 	for (int k=0; k<K; k++) {
 		// Init loop
@@ -381,7 +379,6 @@ void PNSolver::solve(
 		d_th_order_failure_risk_ += alpha_k*d_th_order_failure_risk_k;
 		duration_total += duration_pn;		
 	}
-
 	reverse(p_list_trajectory_split->begin(), p_list_trajectory_split->end());
 
 	cout << "Runtime : " + to_string(duration_total) + "s" << endl;

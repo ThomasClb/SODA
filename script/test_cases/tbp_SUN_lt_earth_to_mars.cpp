@@ -35,8 +35,8 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double mass_leak = 1e-4;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.99}; 
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 1e-3};
+	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995}; 
+	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 5e-4};
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
@@ -141,7 +141,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Uncertainties
 	double position_error = 10/lu; double velocity_error = 0.1/vu;
-	position_error = 1e-6; velocity_error = 1e-4;
+	position_error = 1e-5; velocity_error = 1e-4;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error/100,
 		velocity_error, velocity_error, velocity_error/100,
@@ -149,7 +149,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = sqr(1e-4); terminal_velocity_error_sqr = sqr(5e-5);
+	terminal_position_error_sqr = sqr(1e-5); terminal_velocity_error_sqr = sqr(1e-4);
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),

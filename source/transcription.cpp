@@ -87,7 +87,9 @@ vectorDA dth_order_inequality_transcription( // PN version
 
 	// Make scalling conservatism
 	double a = (1 - fact_conservatism)/(max_norm - min_norm);
+	a = 0.0;
 	double b = 1 - max_norm*a;
+	b = fact_conservatism;
 
 	// Build output vector
 	for (size_t k=0; k<N; k++) {
