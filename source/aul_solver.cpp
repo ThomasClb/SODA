@@ -293,6 +293,8 @@ void AULSolver::solve(
 
 	// Iterate until the list is empty.
 	bool first_round(true);
+	AUL_n_iter_ = 0;
+	DDP_n_iter_ = 0;
 	while (!p_list_trajectory_split->empty()) {
 
 		// Get trajectory
@@ -324,19 +326,19 @@ void AULSolver::solve(
 		// Set dual state and penalty factors lists.
 		DDPsolver_.set_list_lambda(list_lambda_);
 		DDPsolver_.set_list_mu(list_mu_);
-		DDP_n_iter_ = 0;
 
 		// Init loop variables.
 		bool loop = true;
 		bool merged = false;
 		double cost = 1e15;
 		cost_ = cost;
-		AUL_n_iter_ = 0;
+		unsigned int AUL_n_iter = 0;
+		unsigned int DDP_n_iter = 0;
 		violation_ = cost;
 		double d_th_order_failure_risk_k = 1.0;
 		double duration_aul_split = 0.0;
 		int nb_split = 0;
-		while (loop && AUL_n_iter_ < AUL_max_iter) {
+		while (loop && AUL_n_iter < AUL_max_iter) {
 			
 			// Make the trajectory split sufficiently linear
 			if (trajectory_split_.list_dynamics_eval().size() == N) {
@@ -471,10 +473,10 @@ void AULSolver::solve(
 			bool force_continue_loop = violation_ > AUL_tol || merge;
 
 			// Stopping conditions
-			bool force_stop_loop = AUL_n_iter_ > AUL_max_iter;
+			bool force_stop_loop = AUL_n_iter > AUL_max_iter;
 			loop = !force_stop_loop && force_continue_loop;
 			cost = DDPsolver_.cost();
-			DDP_n_iter_ += DDPsolver_.n_iter(); AUL_n_iter_++;
+			DDP_n_iter += DDPsolver_.n_iter(); AUL_n_iter++;
 		}
 
 		// Ouput
@@ -485,8 +487,8 @@ void AULSolver::solve(
 			<< 100*beta_star << ", " 
 			<< 100*d_th_order_failure_risk_ << ", "
 			<< duration_aul_split << ", "
-			<< AUL_n_iter_ << ", "
-			<< DDP_n_iter_ << ", "
+			<< AUL_n_iter << ", "
+			<< DDP_n_iter << ", "
 			<< DDPsolver_.list_x()[N].nominal_state()[SIZE_VECTOR] * constants.massu() << ", "
 			<< violation_ << ", "
 			<< 100*d_th_order_failure_risk_k << endl;
@@ -585,18 +587,15 @@ void AULSolver::solve(
 			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
 		}
 		d_th_order_failure_risk_ += d_th_order_failure_risk_k*alpha_i;
+		DDP_n_iter_ += DDP_n_iter;
+		AUL_n_iter_ += AUL_n_iter;
 	}
 	*p_list_trajectory_split = list_trajectory_split;
 
 	// Output
 	auto stop_aul = high_resolution_clock::now();
 	auto duration_aul = duration_cast<microseconds>(stop_aul - start_aul);
-	if (verbosity < 1) {
-		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
-		cout << "Number of splits : " + to_string(p_list_trajectory_split->size()) << endl;
-		cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;
-	}
-	else if (verbosity < 2) {
+	if (verbosity < 2) {
 		cout << "Runtime : " + to_string(static_cast<double>(duration_aul.count()) / 1e6) + "s" << endl;
 		cout << "Number of splits : " + to_string(p_list_trajectory_split->size()) << endl;
 		cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;

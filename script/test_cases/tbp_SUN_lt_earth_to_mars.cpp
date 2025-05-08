@@ -35,8 +35,14 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double mass_leak = 1e-4;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
+
+	// Study alpha_min
 	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995}; 
 	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 5e-4};
+	if (transcription_beta == 0.05 && LOADS_max_depth == 0.05) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 1e-3};
+	}
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
@@ -54,6 +60,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
+	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
 	unsigned int saving_iterations = 0;
 
 	return SolverParameters(
@@ -76,6 +83,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		lambda_parameters, mu_parameters,
 		PN_regularisation, PN_active_constraint_tol,
 		PN_cv_rate_threshold, PN_alpha, PN_gamma,
+		PN_transcription_parameters,
 		verbosity, saving_iterations);
 }
 
@@ -90,8 +98,8 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 		cout << "3 - Number of nodes [-]." << endl;
 		cout << "4 - Time of flight [days]." << endl;
 		cout << "5 - Perform robust optimisation [0/1]." << endl;
-		cout << "6 - Target failure risk [0, 1]." << endl;
-		cout << "7 - LOADS max depth [0, 1]." << endl;
+		cout << "6 - LOADS max depth [0, 1]." << endl;
+		cout << "7 - Target failure risk [0, 1]." << endl;
 		cout << "8 - Perform fuel-optimal optimisation [0/1]." << endl;
 		cout << "9 - Perform projected Newton solving [0/1]." << endl;
 		cout << "10 - Save results [0/1]." << endl;
@@ -107,8 +115,8 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	unsigned int N = atoi(argv[4]);
 	double ToF = atof(argv[5]);
 	bool robust_solving = false;
-	double transcription_beta = atof(argv[7]);
-	double LOADS_max_depth = atof(argv[8]);
+	double LOADS_max_depth = atof(argv[7]);
+	double transcription_beta = atof(argv[8]);
 	bool fuel_optimal = false;
 	bool pn_solving = false;
 	bool save_results = false;

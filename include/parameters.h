@@ -133,6 +133,7 @@ protected:
 	double PN_cv_rate_threshold_; // PN convergence rate threshold
 	double PN_alpha_; // PN intial line search parameter
 	double PN_gamma_; // PN line search reduction factor
+	DACE::vectordb PN_transcription_parameters_; // [eta_initial_value, eta_lb, eta_min_step, eta_max_step]
 	unsigned int verbosity_; // Quantity of display data, 0=full, 1=no DDP.
 	unsigned int saving_iterations_; // Quantity of iterations saved, 0=final solution, 1=final AUL and final PN, 2=AUL and final PN, 3=DDP + AUL and final PN.
 
@@ -168,8 +169,9 @@ public:
 		DACE::vectordb const& lambda_parameters, DACE::vectordb const& mu_parameters,
 		double const& PN_regularisation, double const& PN_active_constraint_tol,
 		double const& PN_cv_rate_threshold, double const& PN_alpha,
-		double const& PN_gamma, unsigned int const& verbosity,
-		unsigned int const& saving_iterations);
+		double const& PN_gamma,
+		DACE::vectordb const& PN_transcription_parameters,
+		unsigned int const& verbosity, unsigned int const& saving_iterations);
 
 	// Copy constructor
 	SolverParameters(SolverParameters const& param);
@@ -218,6 +220,7 @@ public:
 	const double PN_cv_rate_threshold() const;
 	const double PN_alpha() const;
 	const double PN_gamma() const;
+	const DACE::vectordb PN_transcription_parameters() const;
 	const unsigned int verbosity() const;
 	const unsigned int saving_iterations() const;
 

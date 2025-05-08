@@ -182,6 +182,7 @@ SolverParameters::SolverParameters() :
 	mu_parameters_(vectordb{ 1.0,  1e8, 10 }),
 	PN_regularisation_(1e-8), PN_active_constraint_tol_(1e-13),
 	PN_cv_rate_threshold_(1.1), PN_alpha_(1.0), PN_gamma_(0.5),
+	PN_transcription_parameters_(vectordb{1.0, 1e-6, 1e-3, 0.5}),
 	list_lambda_(), list_mu_(), verbosity_(0), saving_iterations_(0) {
 	// Unpack
 	double lambda(lambda_parameters_[0]);
@@ -237,8 +238,9 @@ SolverParameters::SolverParameters(
 	vectordb const& lambda_parameters, vectordb const& mu_parameters,
 	double const& PN_regularisation, double const& PN_active_constraint_tol,
 	double const& PN_cv_rate_threshold, double const& PN_alpha,
-	double const& PN_gamma, unsigned int const& verbosity,
-	unsigned int const& saving_iterations) :
+	double const& PN_gamma,
+	vectordb const& PN_transcription_parameters,
+	unsigned int const& verbosity, unsigned int const& saving_iterations) :
 	N_(N), Nx_(Nx), Nu_(Nu),
 	Nineq_(Nineq), Ntineq_(Ntineq), ToF_(0.0),
 	with_J2_(with_J2),
@@ -262,6 +264,7 @@ SolverParameters::SolverParameters(
 	PN_regularisation_(PN_regularisation), PN_active_constraint_tol_(PN_active_constraint_tol),
 	PN_cv_rate_threshold_(PN_cv_rate_threshold), PN_alpha_(PN_alpha),
 	PN_gamma_(PN_gamma), list_lambda_(), list_mu_(),
+	PN_transcription_parameters_(PN_transcription_parameters),
 	verbosity_(verbosity), saving_iterations_(saving_iterations) {
 	vector<vectordb> list_lambda(N + 1, vectordb(Nineq, lambda_parameters[0]));
 	vector<vectordb> list_mu(N + 1, vectordb(Nineq, mu_parameters[0]));
@@ -326,6 +329,7 @@ SolverParameters::SolverParameters(SolverParameters const& param) :
 	PN_active_constraint_tol_(param.PN_active_constraint_tol_),
 	PN_cv_rate_threshold_(param.PN_cv_rate_threshold_),
 	PN_alpha_(param.PN_alpha_), PN_gamma_(param.PN_gamma_),
+	PN_transcription_parameters_(param.PN_transcription_parameters_),
 	verbosity_(param.verbosity_), saving_iterations_(param.saving_iterations_) {
 
 	// Init DACE
@@ -389,6 +393,7 @@ const double SolverParameters::PN_active_constraint_tol() const {
 const double SolverParameters::PN_cv_rate_threshold() const { return PN_cv_rate_threshold_; }
 const double SolverParameters::PN_alpha() const { return PN_alpha_; }
 const double SolverParameters::PN_gamma() const { return PN_gamma_; }
+const vectordb SolverParameters::PN_transcription_parameters() const {return PN_transcription_parameters_;}
 const unsigned int SolverParameters::verbosity() const { return verbosity_; }
 const unsigned int SolverParameters::saving_iterations() const { return saving_iterations_; }
 

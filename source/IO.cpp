@@ -215,8 +215,8 @@ void print_sample_trajectory_dataset(
 	int mantisse = static_cast<int>(thrust_mass) / static_cast<int>(pow(10, exposant));
 	string str_T2m = to_string(mantisse) + "e" + to_string(exposant - power);
 	string file_name_ = file_name + "_"
-		+ to_string(inv_beta) + "_"
 		+ to_string(inv_LOADS_max_depth) + "_"
+		+ to_string(inv_beta) + "_"
 		+ str_T2m + "_"
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())
@@ -365,8 +365,8 @@ void print_robust_trajectory_dataset(
 	int mantisse = static_cast<int>(thrust_mass) / static_cast<int>(pow(10, exposant));
 	string str_T2m = to_string(mantisse) + "e" + to_string(exposant - power);
 	string file_name_ = file_name + "_"
-		+ to_string(inv_beta) + "_"
 		+ to_string(inv_LOADS_max_depth) + "_"
+		+ to_string(inv_beta) + "_"
 		+ str_T2m + "_"
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())
@@ -402,8 +402,8 @@ RobustTrajectory load_robust_trajectory(
 	int mantisse = static_cast<int>(thrust_mass) / static_cast<int>(pow(10, exposant));
 	string str_T2m = to_string(mantisse) + "e" + to_string(exposant - power);
 	string file_name_ = file_name + "_"
-		+ to_string(inv_beta) + "_"
 		+ to_string(inv_LOADS_max_depth) + "_"
+		+ to_string(inv_beta) + "_"
 		+ str_T2m + "_"
 		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
 		+ to_string(solver_parameters.DDP_type())

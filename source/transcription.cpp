@@ -17,7 +17,7 @@ using namespace std;
 vectorDA dth_order_inequality_transcription( // PN version
 	vectorDA const& constraints_eval,
 	vector<matrixdb> const& list_Sigma, vector<matrixdb> const& list_feedback_gain,
-	double const& fact_conservatism,
+	double const& eta,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters) {
 	// Unpack
@@ -70,27 +70,6 @@ vectorDA dth_order_inequality_transcription( // PN version
 		norm_vector[N*Nineq + i] = vectorDA(prod_N.getrow(i)).dot(vectorDA(D_f.getrow(i)));
 	}
 
-	// Get min and max
-	vectordb norm_vector_cons(norm_vector.cons());
-	double min_norm(1e15), max_norm(0);
-	for (size_t i=0; i<norm_vector_cons.size(); i++) {
-		double norm_vector_cons_i(norm_vector_cons[i]);
-		if (norm_vector_cons_i > max_norm)
-			max_norm = norm_vector_cons_i;
-		else if (norm_vector_cons_i < min_norm)
-			min_norm = norm_vector_cons_i;
-	}
-	if (max_norm != 0)
-		max_norm = sqrt(max_norm);
-	if (min_norm != 0)
-		min_norm = sqrt(min_norm);
-
-	// Make scalling conservatism
-	double a = (1 - fact_conservatism)/(max_norm - min_norm);
-	a = 0.0;
-	double b = 1 - max_norm*a;
-	b = fact_conservatism;
-
 	// Build output vector
 	for (size_t k=0; k<N; k++) {
 		// Assign
@@ -100,8 +79,7 @@ vectorDA dth_order_inequality_transcription( // PN version
 			double norm_vector_cons_i(norm_vector_i.cons());
 
 			if (norm_vector_cons_i > 0) {
-				double fact_conservatism_i = a*sqrt(norm_vector_cons_i) + b;
-				quantile = sqrt(inv_chi_2_cdf((int)(d*fact_conservatism_i), 1 - beta_star));
+				quantile = sqrt(inv_chi_2_cdf((int)(d*eta), 1 - beta_star));
 				output[index] += quantile*sqrt(norm_vector_i);
 			}
 			else if (norm_vector_cons_i == 0 && output[index].cons() <= 0)
@@ -118,8 +96,7 @@ vectorDA dth_order_inequality_transcription( // PN version
 		double norm_vector_cons_i(norm_vector_i.cons());
 
 		if (norm_vector_cons_i > 0) {
-			double fact_conservatism_i = a*sqrt(norm_vector_cons_i) + b;
-			quantile = sqrt(inv_chi_2_cdf((int)(d*fact_conservatism_i), 1 - beta_star));
+			quantile = sqrt(inv_chi_2_cdf((int)(d*eta), 1 - beta_star));
 			output[index] += quantile*sqrt(norm_vector_i);
 		}
 		else if (norm_vector_cons_i == 0 && output[index].cons() <= 0)

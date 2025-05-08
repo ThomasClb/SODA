@@ -61,6 +61,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
+	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
 	unsigned int saving_iterations = 0;
 
 	return SolverParameters(
@@ -83,6 +84,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 		lambda_parameters, mu_parameters,
 		PN_regularisation, PN_active_constraint_tol,
 		PN_cv_rate_threshold, PN_alpha, PN_gamma,
+		PN_transcription_parameters,
 		verbosity, saving_iterations);
 }
 

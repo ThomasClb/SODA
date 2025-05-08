@@ -211,13 +211,6 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
     nb_datadets = len(dataset.list_dataset_names)
     max_trust = dataset.spacecraft_parameters.thrust
 
-    # Get beta
-    list_file_name = dataset.file_name.split("_")
-    inv_beta = float(list_file_name[-4])
-    beta = 0.05
-    if inv_beta != 0:
-        beta = 1/inv_beta
-
     # Normalisation
     if denormalise:
         THRUSTU = dataset.spacecraft_parameters.constants.THRUSTU
@@ -318,7 +311,7 @@ def plot_thrust_profile(dataset, dataset_sample=Dataset()):
             ".dat", signature)
         
         # Save
-        plt.savefig(file_name, bbox_inches='tight')    
+        plt.savefig(file_name, bbox_inches='tight')  
        
     if show_plot:   
         plt.show()

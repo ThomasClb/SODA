@@ -101,13 +101,6 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
                 data_history = dataset.list_datasets[i].copy()
                 list_history.append(data_history)
     LU = dataset.spacecraft_parameters.constants.LU
-
-    # Get beta
-    list_file_name = dataset.file_name.split("_")
-    inv_beta = float(list_file_name[-4])
-    beta = 0.05
-    if inv_beta != 0:
-        beta = 1/inv_beta   
         
     # Plot ellispses
     quad = np.zeros((2,2))

@@ -165,7 +165,7 @@ void PNSolver::update_robust_trajectory(
 	p_list_trajectory_split->at(k).set_list_dynamics_eval(list_dynamics_eval_);
 }
 
-void PNSolver::update_fact_conservatism_(
+void PNSolver::update_eta_(
 	double const& beta_star,
 	double const& beta_d,
 	double const& violation,
@@ -179,25 +179,26 @@ void PNSolver::update_fact_conservatism_(
 	unsigned int Ntineq = solver_parameters_.Ntineq();
 	double PN_tol = solver_parameters_.PN_tol();
 	double AUL_tol = solver_parameters_.AUL_tol();
+	vectordb PN_transcription_parameters = solver_parameters_.PN_transcription_parameters();
 	size_t dim = N*Nineq + Ntineq;
 
 	// Params
-	double init_value = 0.1;
-	double min_fact = 0.000001;
-	double max_step = 0.25;
-	double min_step = 1e-3;
+	double init_value = PN_transcription_parameters[0];
+	double min_fact = PN_transcription_parameters[1];
+	double min_step = PN_transcription_parameters[2];
+	double max_step = PN_transcription_parameters[3];
 	double diff = beta_d - beta_star;
 	double sign_diff(1); 
 	if (diff != 0)
 		sign_diff = diff/abs(diff);
 
 	// Compute new factor
-	double fact_conservatism = fact_conservatism_;
-	double step = sign_diff*max(min_step, min(max_step, max_step*sqr(diff)));
+	double eta = eta_;
+	double step = sign_diff*max(min_step, max_step*min(1.0, sqr(diff)));
 	if (init)
-		fact_conservatism_ = init_value;
+		eta_ = init_value;
 	else
-		fact_conservatism_ = max(min_fact, min(1.0, fact_conservatism + step));
+		eta_ = max(min_fact, min(1.0, eta + step));
 }
 
 
@@ -245,18 +246,19 @@ void PNSolver::solve(
 	 
 	reverse(p_list_trajectory_split->begin(), p_list_trajectory_split->end());
 	double d_th_order_failure_risk_k  = 1.0;
+	n_iter_ = 0;
 	for (int k=0; k<K; k++) {
 		// Init loop
 		double cv_rate = 1e15;
 		double violation_prev = 1e15;
-		n_iter_ = 0;
+		unsigned int n_iter = 0;
 		set_list_x_u(p_list_trajectory_split->at(k));
 		solver_parameters_.set_path_quantile(
 			sqrt(inv_chi_2_cdf(N*Nineq + Ntineq, 1 - beta_star)));
 
 		// Set quantiles
-		fact_conservatism_ = 1.0; 
-		update_fact_conservatism_(
+		eta_ = 1.0; 
+		update_eta_(
 			beta_star, d_th_order_failure_risk_k,
 			violation_, violation_prev,
 			true);
@@ -272,7 +274,7 @@ void PNSolver::solve(
 		auto stop = high_resolution_clock::now();
 		duration_pn = 0.0;
 		for (size_t i = 0; i < max_iter; i++) {
-			n_iter_ ++;
+			n_iter ++;
 
 			// Output
 			stop = high_resolution_clock::now();
@@ -283,17 +285,17 @@ void PNSolver::solve(
 
 			// Check termination constraints
 			bool converged = (
-				(violation_ == violation_prev && fact_conservatism_ == 1.0) || // No progress can be made
+				(violation_ == violation_prev && eta_ == 1.0) || // No progress can be made
 				(violation_ < 10*constraint_tol && abs(violation_ - violation_prev)/violation_prev < 1e-3 && d_th_order_failure_risk_k <= beta_star) || // No progress can be made
-				violation_ < constraint_tol && (fact_conservatism_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
+				violation_ < constraint_tol && (eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
 			bool update_fact = 
 				((violation_ < constraint_tol*1e3 || abs(violation_ - violation_prev)/violation_prev < 1e-3) &&
 				d_th_order_failure_risk_k > beta_star &&
-				fact_conservatism_ < 1.0) ||
+				eta_ < 1.0) ||
 				(violation_ > constraint_tol*10 && d_th_order_failure_risk_k < beta_star/1.1);
 
 			if (update_fact) {
-				update_fact_conservatism_(
+				update_eta_(
 					beta_star, d_th_order_failure_risk_k,
 					violation_, violation_prev,
 					false);
@@ -330,7 +332,7 @@ void PNSolver::solve(
 				// Termination checks
 				converged = (
 					violation_ < constraint_tol && 
-						(fact_conservatism_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
+						(eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
 				if (converged || cv_rate < cv_rate_threshold)
 					break;
 
@@ -342,16 +344,17 @@ void PNSolver::solve(
 				cv_rate = log(violation_) / log(violation_0);
 				violation_0 = violation_;
 			}
-			if (verbosity == 1 && n_iter_%10 == 0) {
-				cout << "	" << fact_conservatism_ << ", " 
+			if (verbosity == 1 && n_iter%10 == 0) {
+				cout << "	" << eta_ << ", " 
 				<< 100*beta_star << ", "
 				<< 100*d_th_order_failure_risk_k << ", "
-				<< n_iter_ << ", "
+				<< n_iter << ", "
 				<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
 				<< violation_ << ", "
 				<< endl;
 			}
 		}
+		n_iter_ += n_iter;
 		update_robust_trajectory(p_list_trajectory_split, k);
 
 		// Output
@@ -361,7 +364,7 @@ void PNSolver::solve(
 			<< 100*beta_star << ", " 
 			<< 100*d_th_order_failure_risk_ << ", "
 			<< duration_pn << ", "
-			<< n_iter_ << ", "
+			<< n_iter << ", "
 			<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
 			<< violation_ << ", "
 			<< 100*d_th_order_failure_risk_k << endl;
@@ -381,10 +384,11 @@ void PNSolver::solve(
 	}
 	reverse(p_list_trajectory_split->begin(), p_list_trajectory_split->end());
 
-	cout << "Runtime : " + to_string(duration_total) + "s" << endl;
-	cout << "Number of splits : " + to_string(K) << endl;
-	cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;
-
+	if (verbosity < 2) {
+		cout << "Runtime : " + to_string(duration_total) + "s" << endl;
+		cout << "Number of splits : " + to_string(K) << endl;
+		cout << "Beta T : " + to_string(d_th_order_failure_risk_*100) + "%" << endl;
+	}
 	return;
 }
 
@@ -697,7 +701,7 @@ void PNSolver::update_constraints_(
 		INEQ_stochastic = dth_order_inequality_transcription(
 			INEQ_stochastic,
 			list_Sigma_, list_feedback_gain_,
-			fact_conservatism_,
+			eta_,
 			spacecraft_parameters_, constants,
 			solver_parameters_);
 		
@@ -837,7 +841,7 @@ vectordb PNSolver::update_constraints_double_(
 		INEQ_stochastic = dth_order_inequality_transcription(
 			INEQ_stochastic,
 			list_Sigma_, list_feedback_gain_,
-			fact_conservatism_,
+			eta_,
 			spacecraft_parameters_, constants,
 			solver_parameters_);
 	}

@@ -49,7 +49,7 @@ protected:
 	std::size_t n_iter_; // Number of iterations
 
 	// Looping attributes
-	double fact_conservatism_; // eta parameter [-]
+	double eta_; // eta parameter [-]
 	DACE::vectordb X_U_; // Concatenated states and controls
 	DACE::vectordb INEQ_; // Concatenated constraints
 	DACE::vectordb correction_; // Vector of all corrections
@@ -96,7 +96,7 @@ public:
 		std::deque<TrajectorySplit>* const& p_list_trajectory_split,
 		std::size_t const& k);
 
-	void update_fact_conservatism_(
+	void update_eta_(
 		double const& beta_star,
 		double const& beta_d,
 		double const& violation,
