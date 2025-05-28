@@ -52,6 +52,9 @@ public:
 
     // Returns the sorter list of all mahalanobis distances for a given vector x.
     const std::vector<std::pair<double, std::size_t>> get_mahalanobis_distance(DACE::vectordb const& vector) const;
+
+    // Returns the sorter list of all 2 distances for a given vector x.
+    const std::vector<std::pair<double, std::size_t>> get_distance(DACE::vectordb const& vector) const;
 };
 
 #endif

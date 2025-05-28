@@ -135,23 +135,6 @@ def plot_sample(dataset, dataset_sample, ax, max_sample_size,
         if sample_size != 0:
             for i in range(sample_size):
                 control_sample[i] = THRUSTU*control_sample[i]
-        
-    # Offset
-    if sample_size != 0:
-        for i in range(sample_size):
-            # Unpack
-            u = control_sample[i]
-            state_0 = state_0_sample[i]
-
-            # Find split
-            list_maha = []
-            for k in range(nb_GMM):
-                list_maha.append((state_0 - list_center[k]).T@list_inv_cov[k]@(state_0 - list_center[k]))
-            index = np.argmin(list_maha)
-            u_mean = list_control[index]
-
-            # Scale
-            control_sample[i] = u_mean + (u - u_mean)
 
     # Sample
     if sample_size != 0:

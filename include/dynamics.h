@@ -615,8 +615,8 @@ DACE::AlgebraicVector<T> inequality_constraints_cr3bp_EARTH_MOON_lt(
 	T x_1p2_sqr(DACE::sqr(x_1) + DACE::sqr(x_2));
 	T r_1_sqr = DACE::sqr(x_0 - mu) + x_1p2_sqr;
 	T r_2_sqr = DACE::sqr(x_0  + 1 - mu) + x_1p2_sqr;
-	output.push_back(R_EARTH/lu - r_1_sqr); // Earth
-	output.push_back(R_MOON/lu - r_2_sqr); // Moon
+	//output.push_back(R_EARTH/lu - r_1_sqr); // Earth
+	//output.push_back(R_MOON/lu - r_2_sqr); // Moon
 	
 	return output;
 }

@@ -59,3 +59,18 @@ const vector<pair<double, size_t>> RobustTrajectory::get_mahalanobis_distance(
     sort(output.begin(), output.end());
     return output;
 }
+
+// Returns the sorter list of all norm 2 distances for a given vector x.
+const vector<pair<double, size_t>> RobustTrajectory::get_distance(
+    vectordb const& x) const {
+
+    vector<pair<double, size_t>> output(this->size());
+    for (size_t i=0; i<this->size(); i++) {
+        vectordb x_ref(this->at(i).list_x()[0].nominal_state());
+        x_ref = x - x_ref;
+        output[i].first = x_ref.vnorm();
+        output[i].second = i;
+    }
+    sort(output.begin(), output.end());
+    return output;
+}

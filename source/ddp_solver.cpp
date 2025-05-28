@@ -365,11 +365,11 @@ statedb DDPSolver::make_state(
 	return x_k;
 }
 
-// Performs the DDP backward sweep, that consists in the computation
+// Performs the iLQR backward sweep, that consists in the computation
 // of the gains corrections.
 // Inspired from ALTRO (Julia).
 // See: https://github.com/RoboticExplorationLab/Altro.jl
-void DDPSolver::backward_sweep_() {
+void DDPSolver::backward_sweep_iLQR_() {
 	// Unpack parameters
 	unsigned int N = solver_parameters_.N();
 	unsigned int Nx = solver_parameters_.Nx();
@@ -424,6 +424,109 @@ void DDPSolver::backward_sweep_() {
 			matrixdb Quu(der_stage_cost[3] + der_dynamic_1_t * Vxx * der_dynamic_1);
 			matrixdb Qux(der_stage_cost[4] + der_dynamic_1_t * Vxx * der_dynamic_0);
 
+			// Regularisation
+			for (size_t k = 0; k < Nu; k++) {
+				Quu.at(k, k) += rho_;
+			}
+
+			// Check that Quu is definite positive (hence invertible)
+			if (!is_def_pos_(Quu)) {
+				if (rho_ == rho_max)
+					increase_regularisation_(Quu); // safe version
+				else
+					increase_regularisation_();
+				success = false; break;
+			}
+
+			// Compute Cholesky Factorisation to ease solving
+			matrixdb Luu = cholesky_(Quu);
+
+			// Compute gains
+			matrixdb Qux_t = Qux.transpose();
+			matrixdb K = -1.0 * solve_cholesky_(Luu, Qux);
+			matrixdb k = -1.0 * solve_cholesky_(Luu, Qu.transpose());
+
+			// Store gains and Qu
+			list_Qu_.push_back(Qu);
+			list_K_.push_back(K);
+			list_k_.push_back(k);
+
+			// Get Vx and Vxx for next step
+			Vx = Qx.transpose() + Qux_t * k;
+			Vxx = Qxx + Qux_t * K;
+		}
+	}
+	decrease_regularisation_();
+}
+
+// Performs the DDP backward sweep, that consists in the computation
+// of the gains corrections, with hessians.
+void DDPSolver::backward_sweep_DDP_() {
+	// Unpack parameters
+	unsigned int N = solver_parameters_.N();
+	unsigned int Nx = solver_parameters_.Nx();
+	unsigned int Nu = solver_parameters_.Nu();
+	unsigned int Nineq = solver_parameters_.Nineq();
+	unsigned int Ntineq = solver_parameters_.Ntineq();
+	vectordb rho_parameters = solver_parameters_.backward_sweep_regulation_parameters();
+	double rho_max = rho_parameters[2];
+
+	// Evaluate terminal cost derivatives
+	vector<matrixdb> der_terminal_cost = deriv_x(
+		vectorDA{list_constraints_eval_[N][Ntineq] }, Nx, true);
+
+	// Init Vx0, Vxx0
+	matrixdb Vx0 = der_terminal_cost[0].transpose();
+	matrixdb Vxx0 = der_terminal_cost[1];
+
+	// Init vectors
+	vectorDA vect_sc(1);
+
+	// Backward loop
+	bool success = false;
+	while (!success) {
+		// Init Vx, Vxx
+		matrixdb Vx = Vx0;
+		matrixdb Vxx = Vxx0;
+
+		// Init gains
+		list_Qu_ = vector<matrixdb>(0); list_Qu_.reserve(N);
+		list_K_ = vector<matrixdb>(0); list_K_.reserve(N);
+		list_k_ = vector<matrixdb>(0); list_k_.reserve(N);
+		success = true;
+		for (int j = N - 1; j >= 0; j--) {
+
+			// Get derivatives
+			vect_sc[0] = list_constraints_eval_[j][Nineq];
+			vector<matrixdb> der_dynamic = deriv_xu(
+				list_dynamics_eval_[j], Nx, Nu, true);
+			vector<matrixdb> der_cost_to_go = deriv_xu(
+				vect_sc, Nx, Nu, true);
+
+			// Unpack derivatives and transpose if needed
+			matrixdb der_dynamic_0(der_dynamic[0]);
+			matrixdb der_dynamic_1(der_dynamic[1]);
+			matrixdb der_dynamic_1_t(der_dynamic_1.transpose());
+			matrixdb Vx_t = Vx.transpose();
+
+			// Get Q derivatives
+			matrixdb Qx(der_cost_to_go[0] + Vx_t * der_dynamic_0);
+			matrixdb Qu(der_cost_to_go[1] + Vx_t * der_dynamic_1);
+			matrixdb Qxx(der_cost_to_go[2] + der_dynamic_0.transpose() * Vxx * der_dynamic_0);
+			matrixdb Quu(der_cost_to_go[3] + der_dynamic_1_t * Vxx * der_dynamic_1);
+			matrixdb Qux(der_cost_to_go[4] + der_dynamic_1_t * Vxx * der_dynamic_0);
+
+			// Add hessians
+			for (size_t k=0; k < Nx; k++) {
+				matrixdb fxx_k = der_dynamic[2 + k];
+				matrixdb fuu_k = der_dynamic[2 + k + Nx];
+				matrixdb fux_k = der_dynamic[2 + k + 2*Nx];
+				double Vx_k = Vx.at(k, 0);
+				Qxx = Qxx + Vx_k * fxx_k;
+				Quu = Quu + Vx_k * fuu_k;
+				Qux = Qux + Vx_k * fux_k;
+			}
+			
 			// Regularisation
 			for (size_t k = 0; k < Nu; k++) {
 				Quu.at(k, k) += rho_;
@@ -890,6 +993,7 @@ void DDPSolver::solve(
 	// DDP solving
 	vector<statedb> list_x(list_x_); vector<controldb> list_u(list_u_init);
 	bool loop = true; double cost_last = 0.0;
+	double d_cost(1e15);
 	while (loop) {
 		// Update looping variables
 		n_iter_++;
@@ -900,9 +1004,14 @@ void DDPSolver::solve(
 		// Get times
 		auto start = high_resolution_clock::now();
 
-		// Backward sweep
-		backward_sweep_();
-
+		// Backward sweep 
+		backward_sweep_iLQR_();
+		/*
+		if (d_cost > 10*tol)
+			backward_sweep_iLQR_();
+		else
+			backward_sweep_DDP_();
+		*/
 		// Forward pass init
 		list_x_ = vector<statedb>(1, x0);
 		list_u_ = vector<controldb>();
@@ -920,7 +1029,7 @@ void DDPSolver::solve(
 		sc = (cost_ - tc);
 
 		// Evaluate convergence 
-		double d_cost = (cost_last - cost_)/max(abs(cost_last), abs(cost_));
+		d_cost = (cost_last - cost_)/max(abs(cost_last), abs(cost_));
 		loop = !evaluate_convergence_(d_cost);
 
 		// Update states and control

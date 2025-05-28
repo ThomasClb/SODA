@@ -211,8 +211,6 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 	
 	// Print datasets
 	if (save_results && !load_trajectory) {
-		string file_name = "./data/robust_trajectory/tbp_SUN_lt_earth_to_mars";
-		string system_name = "TBP SUN CARTESIAN LT";
 		print_robust_trajectory_dataset(
 			file_name, system_name,
 			robust_trajectory,
@@ -233,7 +231,6 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 		// Print datasets
 		if (save_results) {
 			string file_name = "./data/sample_trajectory/tbp_SUN_lt_earth_to_mars";
-			string system_name = "TBP SUN CARTESIAN LT";
 			print_sample_trajectory_dataset(
 				file_name, system_name,
 				sample[0], sample[1], sample[2], sample[3],

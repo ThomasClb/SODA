@@ -74,17 +74,12 @@ void run_test_cases(int argc, char** argv) {
 
 	// Excute correct test case
 
-	// Double integrator
-	if (test_case == 0) {
-		double_integrator(argc, argv);
-	}
-
 	// TBP
 	
 	// SUN centered
 
 	// Earth-mars transfer
-	else if (test_case == 1)
+	if (test_case == 1)
 		tbp_SUN_lt_earth_to_mars(argc, argv);
 
 	// CR3BP

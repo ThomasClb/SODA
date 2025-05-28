@@ -510,7 +510,7 @@ double PNSolver::evaluate_risk() {
 	}
 
 	// Return
-	return dth_order_risk_estimation(mean, norm_vector);
+	return max(0, dth_order_risk_estimation(mean, norm_vector));
 }
 
 // Computes the maximum constraints given eq in ineq constraints
@@ -607,29 +607,23 @@ void PNSolver::update_constraints_(
 			0, Nx, Nu + Nx);
 
 		// Continuity constraints
+		
+
+		// Get conv radius
+		vectorDA dynamics_eval = list_dynamics_eval_[i];
+		double radius = convRadius(dynamics_eval, tol);
+		double norm = dx_u.vnorm();
+
+		// Compute the next step using the previous map
 		vectorDA x_kp1_eval;
-		if (force_DA) {
+		if (norm < radius && !force_DA) {
+			x_kp1_eval = dynamics_eval.eval(dx_u_DA);	
+		} else { // Compute from scratch	
 			x_kp1_eval = dynamics_.dynamic()(
 				x_DA, u_DA,
 				spacecraft_parameters_, constants, solver_parameters_);
-		} else {
-			// Get conv radius
-			vectorDA dynamics_eval = list_dynamics_eval_[i];
-			double radius = convRadius(dynamics_eval, tol);
-			double norm = dx_u.vnorm();
-
-			// Compute the next step using the previous map
-			if (norm < radius) {
-				x_kp1_eval = dynamics_eval.eval(dx_u_DA);	
-			}
-
-			// Compute from scratch	
-			else {
-				x_kp1_eval = dynamics_.dynamic()(
-					x_DA, u_DA,
-					spacecraft_parameters_, constants, solver_parameters_);
-			}
 		}
+
 		list_dynamics_eval_[i] = x_kp1_eval;
 
 		// Get Sigma
@@ -685,27 +679,12 @@ void PNSolver::update_constraints_(
 		INEQ_stochastic[N*(Nineq  + 0) + k] = constraints_eval[k];}
 
 	// Transcription
-	if (TRANSCRIPTION_METHOD == 0) {
-		// TO DO
-	}
-	/*
-	else if (TRANSCRIPTION_METHOD == 1) {
-		INEQ_stochastic = first_order_inequality_transcription(
-			INEQ_stochastic,
-			list_Sigma_, list_feedback_gain_,
-			spacecraft_parameters_, constants,
-			solver_parameters_);
-		
-	} */else if (TRANSCRIPTION_METHOD == 1) {
-		/**/
-		INEQ_stochastic = dth_order_inequality_transcription(
-			INEQ_stochastic,
-			list_Sigma_, list_feedback_gain_,
-			eta_,
-			spacecraft_parameters_, constants,
-			solver_parameters_);
-		
-	}
+	INEQ_stochastic = dth_order_inequality_transcription(
+		INEQ_stochastic,
+		list_Sigma_, list_feedback_gain_,
+		eta_,
+		spacecraft_parameters_, constants,
+		solver_parameters_);
 
 	// Get derivatives
 
@@ -824,27 +803,12 @@ vectordb PNSolver::update_constraints_double_(
 		INEQ_stochastic[N*(Nineq + 0) + k] = constraints_eval[k];}
 
 	// Transcription
-	if (TRANSCRIPTION_METHOD == 0) {
-		// TO DO
-	}
-	/*
-	else if (TRANSCRIPTION_METHOD == 1) {
-		INEQ_stochastic = first_order_inequality_transcription(
-			INEQ_stochastic,
-			list_Sigma_, list_feedback_gain_,
-			spacecraft_parameters_, constants,
-			solver_parameters_);
-		
-	} */
-	else if (TRANSCRIPTION_METHOD == 1) {
-		/**/
-		INEQ_stochastic = dth_order_inequality_transcription(
-			INEQ_stochastic,
-			list_Sigma_, list_feedback_gain_,
-			eta_,
-			spacecraft_parameters_, constants,
-			solver_parameters_);
-	}
+	INEQ_stochastic = dth_order_inequality_transcription(
+		INEQ_stochastic,
+		list_Sigma_, list_feedback_gain_,
+		eta_,
+		spacecraft_parameters_, constants,
+		solver_parameters_);
 
 	// Assign
 	for (size_t i = 0; i < N; i++) {

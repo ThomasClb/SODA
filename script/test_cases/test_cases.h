@@ -20,7 +20,6 @@
 #include "monte_carlo.h"
 
 // Test cases
-void double_integrator(int argc, char** argv);
 void tbp_SUN_lt_earth_to_mars(int argc, char** argv);
 void cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(int argc, char** argv);
 void cr3bp_EARTH_MOON_lt_nrho_to_dro(int argc, char** argv);

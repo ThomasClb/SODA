@@ -124,7 +124,7 @@ void SODA::solve(
 	auto start_inter = high_resolution_clock::now();
 	PNsolver_ = PNSolver(AULsolver_);
 	PN_n_iter_ = 0;
-	if (pn_solving) {
+	if (pn_solving && AULsolver_.d_th_order_failure_risk() > transcription_beta) {
 		// Solve
 		PNsolver_.solve(&list_trajectory_split_, x_goal);
 		PN_n_iter_ = PNsolver_.n_iter();

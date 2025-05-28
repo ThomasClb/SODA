@@ -19,44 +19,43 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	unsigned int const& N, unsigned int const& DDP_type,
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
-	double const& transcription_beta,
+	double const& transcription_beta, double const& LOADS_max_depth,
 	unsigned int verbosity) {
 	// Solver parameters
 	unsigned int Nx = (SIZE_VECTOR + 1) + 1;
 	unsigned int Nu = SIZE_VECTOR / 2;
-	unsigned int Nineq = 4;
+	unsigned int Nineq = 2;
 	unsigned int Ntineq = 1;
 	bool with_J2 = false;
 	double cost_to_go_gain = 1e-1;
-	double terminal_cost_gain = 1e5;
-	matrixdb terminal_cost_inv_covariance = inv(make_diag_matrix_(
+	double terminal_cost_gain = 1e4;
+	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
-			position_error_sqr, position_error_sqr, position_error_sqr,
-			velocity_error_sqr, velocity_error_sqr, velocity_error_sqr}));
-	double mass_leak = 1e-6;
+			1/position_error_sqr, 1/position_error_sqr, 1/position_error_sqr,
+			1/velocity_error_sqr, 1/velocity_error_sqr, 1/velocity_error_sqr});
+	double mass_leak = 5e-6;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
-	vectordb huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 1e-3, 2e-4};
+	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+	vectordb huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 1e-3, 5e-4};
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-6;
 	double PN_tol = 1e-12;
-	double LOADS_tol = 1e-2;
-	double LOADS_max_depth = 0.1;
+	double LOADS_tol = 1e-3;
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
-	unsigned int AUL_max_iter = 15;
-	unsigned int PN_max_iter = 500;
+	unsigned int AUL_max_iter = 80;
+	unsigned int PN_max_iter = 3000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 10};
+	vectordb mu_parameters{1, 1e8, 5};
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
-	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.6};
+	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.5};
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
-	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
+	vectordb PN_transcription_parameters{0.9, 1e-6, 1e-3, 0.2};
 	unsigned int saving_iterations = 0;
 
 	return SolverParameters(
@@ -85,7 +84,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 
 void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	// Input check
-	if (argc < 11) {
+	if (argc < 14) {
 		cout << "Wrong number of arguments." << endl;
 		cout << "Requested number : 9" << endl;
 		cout << "0 - Test case number." << endl;
@@ -94,11 +93,14 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 		cout << "3 - Number of nodes [-]." << endl;
 		cout << "4 - Time of flight [days]." << endl;
 		cout << "5 - Perform robust optimisation [0/1]." << endl;
-		cout << "6 - Target failure risk [0, 1]." << endl;
-		cout << "7 - Perform fuel-optimal optimisation [0/1]." << endl;
-		cout << "8 - Perform projected Newton solving [0/1]." << endl;
-		cout << "9 - Save results [0/1]." << endl;
-		cout << "10 - Verbosity [0-2]." << endl;
+		cout << "6 - LOADS max depth [0, 1]." << endl;
+		cout << "7 - Target failure risk [0, 1]." << endl;
+		cout << "8 - Perform fuel-optimal optimisation [0/1]." << endl;
+		cout << "9 - Perform projected Newton solving [0/1]." << endl;
+		cout << "10 - Save results [0/1]." << endl;
+		cout << "11 - Load trajectory [0/1]." << endl;
+		cout << "12 - MC sample  size [-]." << endl;
+		cout << "13 - Verbosity [0-2]." << endl;
 		return;
 	}
 
@@ -108,19 +110,19 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	unsigned int N = atoi(argv[4]);
 	double ToF = atof(argv[5]);
 	bool robust_solving = false;
-	double transcription_beta = atof(argv[7]);
+	double LOADS_max_depth = atof(argv[7]);
+	double transcription_beta = atof(argv[8]);
 	bool fuel_optimal = false;
 	bool pn_solving = false;
 	bool save_results = false;
-	int verbosity = atoi(argv[11]);
+	bool load_trajectory = false;
+	unsigned int size_sample = atoi(argv[13]);
+	int verbosity = atoi(argv[14]);
 	if (atoi(argv[6]) == 1) { robust_solving = true; }
-	if (atoi(argv[8]) == 1) { fuel_optimal = true; }
-	if (atoi(argv[9]) == 1) { pn_solving = true; }
-	if (atoi(argv[10]) == 1) { save_results = true; }
-	
-	// Set double precision
-	typedef std::numeric_limits<double> dbl;
-	cout.precision(7);
+	if (atoi(argv[9]) == 1) { fuel_optimal = true; }
+	if (atoi(argv[10]) == 1) { pn_solving = true; }
+	if (atoi(argv[11]) == 1) { save_results = true; }
+	if (atoi(argv[12]) == 1) { load_trajectory = true; }
 
 	// Get dynamics
 	Dynamics dynamics = get_cr3bp_EARTH_MOON_lt_dynamics();
@@ -137,17 +139,18 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	SpacecraftParameters spacecraft_parameters(spacecraft_parameters_file);
 
 	// Uncertainties
-	double position_error = 5e-7; double velocity_error = 1e-7;
+	double position_error = 1e-6; double velocity_error = 1e-5;
 	vectordb init_convariance_diag{
-		position_error, position_error, position_error,
-		velocity_error, velocity_error, velocity_error,
+		position_error, position_error, position_error/100,
+		velocity_error, velocity_error, velocity_error/100,
 		0.0, 0.0};
 
 	// Init solver parameters
-	double terminal_position_error_sqr = sqr(1e-4); double terminal_velocity_error_sqr = sqr(1e-5);
+	double terminal_position_error_sqr = sqr(position_error); double terminal_velocity_error_sqr = sqr(velocity_error);
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
-		make_diag_matrix_(sqr(init_convariance_diag/100)), transcription_beta, verbosity);
+		make_diag_matrix_(sqr(init_convariance_diag/100)),
+		transcription_beta, LOADS_max_depth, verbosity);
 
 	// Solver parameters
 	unsigned int Nx = solver_parameters.Nx();
@@ -186,36 +189,30 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	// Compute or load trajectory
 	string file_name = "./data/robust_trajectory/cr3bp_EARTH_MOON_lt_dro_to_dro";
 	string system_name = "CR3BP EARTH-MOON CARTESIAN LT";
-	deque<TrajectorySplit> list_trajectory_split;
-	bool load_trajectory=false;
+	RobustTrajectory robust_trajectory;
 	if (load_trajectory) {
-		/*
-		list_trajectory_split = load_robust_trajectory(
+		robust_trajectory = load_robust_trajectory(
 			file_name, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
-		*/
+		
 	} else {
 		solver.solve(x0, list_u_init, x_goal, robust_solving, fuel_optimal, pn_solving);
-		list_trajectory_split = solver.list_trajectory_split();
+		robust_trajectory = RobustTrajectory(solver.list_trajectory_split());
 	}
-
+	
 	// Print datasets
 	if (save_results && !load_trajectory) {
-		string file_name = "./data/robust_trajectory/cr3bp_EARTH_MOON_lt_dro_to_dro";
-		string system_name = "CR3BP EARTH-MOON CARTESIAN LT";
 		print_robust_trajectory_dataset(
 			file_name, system_name,
-			list_trajectory_split,
+			robust_trajectory,
 			x_departure, x_arrival, ToF, robust_solving,
 			dynamics, spacecraft_parameters, constants, solver_parameters);
-	}
+	}	
 
 	// Monte-Carlo validation
-	bool monte_carlo_validaiton = true;
-	if (monte_carlo_validaiton) {
-		size_t size_sample=100000;
+	if (size_sample > 0) {
 		vector<vector<matrixdb>> sample = test_trajectory(
-			list_trajectory_split,
+			robust_trajectory,
 			x0, x_goal, size_sample,
 			solver,	atoi(argv[1]), robust_solving, solver_parameters,
 			solver.AULsolver().DDPsolver().spacecraft_parameters(),
@@ -225,7 +222,6 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 		// Print datasets
 		if (save_results) {
 			string file_name = "./data/sample_trajectory/cr3bp_EARTH_MOON_lt_dro_to_dro";
-			string system_name = "CR3BP EARTH-MOON CARTESIAN LT";
 			print_sample_trajectory_dataset(
 				file_name, system_name,
 				sample[0], sample[1], sample[2], sample[3],

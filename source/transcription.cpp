@@ -71,6 +71,7 @@ vectorDA dth_order_inequality_transcription( // PN version
 	}
 
 	// Build output vector
+	quantile = sqrt(inv_chi_2_cdf((int)(d*eta), 1 - beta_star));
 	for (size_t k=0; k<N; k++) {
 		// Assign
 		for (size_t i=0; i<Nineq; i++) {
@@ -79,7 +80,6 @@ vectorDA dth_order_inequality_transcription( // PN version
 			double norm_vector_cons_i(norm_vector_i.cons());
 
 			if (norm_vector_cons_i > 0) {
-				quantile = sqrt(inv_chi_2_cdf((int)(d*eta), 1 - beta_star));
 				output[index] += quantile*sqrt(norm_vector_i);
 			}
 			else if (norm_vector_cons_i == 0 && output[index].cons() <= 0)
@@ -96,7 +96,6 @@ vectorDA dth_order_inequality_transcription( // PN version
 		double norm_vector_cons_i(norm_vector_i.cons());
 
 		if (norm_vector_cons_i > 0) {
-			quantile = sqrt(inv_chi_2_cdf((int)(d*eta), 1 - beta_star));
 			output[index] += quantile*sqrt(norm_vector_i);
 		}
 		else if (norm_vector_cons_i == 0 && output[index].cons() <= 0)

@@ -100,12 +100,16 @@ vectordb propagate_trajectory(
 	}
 
 	// Find nominal trajectory
+	// vector<pair<double, size_t>> list_maha = robust_trajectory.get_mahalanobis_distance(x_0_sample);
 	vector<pair<double, size_t>> list_maha = robust_trajectory.get_mahalanobis_distance(x_0_sample);
 	size_t index_nominal(list_maha[0].second);
 
 	// TO DO other method
 	vector<statedb> list_x(robust_trajectory[index_nominal].list_x());
 	vector<controldb> list_u(robust_trajectory[index_nominal].list_u());
+
+	typedef std::numeric_limits<double> dbl;
+	cout.precision(8);
 
 	// Loop on all steps
 	for (size_t i = 0; i < N; i++) {
@@ -148,7 +152,7 @@ vectordb propagate_trajectory(
 			p_mat_state->setrow(i+1, x_kp1_sample);
 			p_mat_path_constraints->setrow(i, constraints);
 		}
-	}
+	}	
 
 	// Get x
 	vectordb x_sample = list_x_sample[N];
@@ -184,6 +188,18 @@ vectordb propagate_trajectory(
 		if (constraints[j]>max_constraint)
 			max_constraint = constraints[j];
 	}
+
+	/*
+	if (max_constraint > 0) {
+
+			cout << index_nominal << ", " 
+			<< list_maha[0].first << " - " 
+			<< list_x_sample[0][3] << ", " 
+			<< list_x_sample[0][4] << " - " 
+			<< list_x_sample[N][3] << ", " 
+			<< list_x_sample[N][4] << ", " << endl;
+	}
+	*/
 
 	// Output
 	vectordb output(3);

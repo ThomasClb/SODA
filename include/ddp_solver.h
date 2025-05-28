@@ -150,12 +150,19 @@ public:
 		unsigned int const& Nx, unsigned int const& Nu,
 		DACE::vectorDA const& x_k_DA, statedb const& x_km1, controldb const& u_km1) const;
 
+	// Performs the iLQR backward sweep, that consists in the computation
+	// of the gains corrections.
+	// Inspired from ALTRO (Julia).
+	// See: https://github.com/RoboticExplorationLab/Altro.jl
+	// No unit test.
+	void backward_sweep_iLQR_();
+
 	// Performs the DDP backward sweep, that consists in the computation
 	// of the gains corrections.
 	// Inspired from ALTRO (Julia).
 	// See: https://github.com/RoboticExplorationLab/Altro.jl
 	// No unit test.
-	void backward_sweep_();
+	void backward_sweep_DDP_();
 
 	// Performs the DDP forward pass, that consists in the computation
 	// of the new states and control after correction.

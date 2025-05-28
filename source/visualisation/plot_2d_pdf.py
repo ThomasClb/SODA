@@ -268,16 +268,6 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     nb_levels = 10
     ellipse_levels = np.linspace(0.1, 1, nb_levels)
     plot_CL = True
-    if "mars" in dataset.file_name:
-        ellipse_scale = 15
-    elif "halo" in dataset.file_name:
-        ellipse_scale = 3e5
-    elif "nrho" in dataset.file_name:
-        ellipse_scale = 2e5
-    elif "dro_to_dro" in dataset.file_name:
-        ellipse_scale = 1e4
-    elif "lyapunov" in dataset.file_name:
-        ellipse_scale = 5e5
     
     # System points
     if dataset.dynamical_system.startswith("CR3BP"):

@@ -189,45 +189,42 @@ double AULSolver::evaluate_risk() {
 	unsigned int Nu = solver_parameters.Nu();
 	unsigned int Nineq = solver_parameters.Nineq();
 	unsigned int Ntineq = solver_parameters.Ntineq();
-	double AUL_tol = solver_parameters.AUL_tol();
 	vector<vectorDA> list_constraints_eval(DDPsolver_.list_deterministic_constraints_eval());
 	
 	// Compute diagonal blocks of Sigma
 	double max_beta_d(-1e15);
 
 	// Get diag and mean
-	matrixdb Sigma_x_i, feedback_gain_i, A_i, B_i, Delta_i, R_i;
+	vectordb mean, norm_vector;
+	mean.reserve(N*(Nineq) + Ntineq);
+	norm_vector.reserve(N*Nineq + Ntineq);
+	matrixdb Delta_i, Sigma_i;
 	vector<matrixdb> der_constraints;
 	vectordb constraints_eval;
-	double beta_d_i;
 	for (size_t i=0; i<N; i++) {
 		// Unpack
-		Sigma_x_i = trajectory_split_.list_x()[i].Sigma();
-		feedback_gain_i = trajectory_split_.list_u()[i].feedback_gain();
 		der_constraints = deriv_xu(
 			list_constraints_eval[i], Nx, Nu, false);
-		A_i = der_constraints[0]; B_i = der_constraints[1];
-		Delta_i = A_i + B_i*feedback_gain_i;
-		R_i = Delta_i*Sigma_x_i*Delta_i.transpose();
-		constraints_eval = list_constraints_eval[i].cons() - AUL_tol/100;
-		beta_d_i = dth_order_risk_estimation(constraints_eval, get_diag_vector_(R_i));
-		if (beta_d_i > max_beta_d)
-			max_beta_d = beta_d_i;
+		Delta_i = der_constraints[0] + der_constraints[1]*trajectory_split_.list_u()[i].feedback_gain();
+		Sigma_i = Delta_i*trajectory_split_.list_x()[i].Sigma()*Delta_i.transpose();
+		constraints_eval = list_constraints_eval[i].cons();
+		for (size_t j=0; j<Nineq; j++) {
+			mean.push_back(constraints_eval[j]);
+			norm_vector.push_back(Sigma_i.at(j,j));
+		}
 	}
 
 	// Unpack
-	Sigma_x_i = trajectory_split_.list_x()[N].Sigma();
 	der_constraints = deriv_x(
 			list_constraints_eval[N], Nx, false);
-	A_i = der_constraints[0];
-	R_i = A_i*Sigma_x_i*A_i.transpose();
-	constraints_eval = list_constraints_eval[N].cons() - AUL_tol/100;
-	beta_d_i = dth_order_risk_estimation(constraints_eval, get_diag_vector_(R_i));
-	if (beta_d_i>max_beta_d)
-		max_beta_d = beta_d_i;
+	Sigma_i = der_constraints[0]*trajectory_split_.list_x()[N].Sigma()*der_constraints[0].transpose();
+	constraints_eval = list_constraints_eval[N].cons();
+	for (size_t j=0; j<Ntineq; j++) {
+			mean.push_back(constraints_eval[j]);
+			norm_vector.push_back(Sigma_i.at(j,j));
+	}
 
-	// Return
-	return max_beta_d;
+	return max(0, dth_order_risk_estimation(mean, norm_vector));
 }
 
 // Performs AUL solving given a starting point,
@@ -282,8 +279,9 @@ void AULSolver::solve(
 	// Set quantiles
 	double beta_star(solver_parameters.transcription_beta());
 	d_th_order_failure_risk_ = 0;
-	this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
-	this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
+	double coef = 2.5;
+	this->set_path_quantile(sqrt(inv_chi_2_cdf(coef*Nineq + 1, 1 - beta_star)));
+	this->set_terminal_quantile(sqrt(inv_chi_2_cdf(coef*Ntineq + 1, 1 - beta_star)));
 
 	// Init Robust Trajectory
 	deque<TrajectorySplit> list_trajectory_split;
@@ -526,14 +524,11 @@ void AULSolver::solve(
 				for (size_t j=0; j<list_trajectory_split.size(); j++) {
 					vectordb nominal_state_j(list_trajectory_split[j].list_x()[0].nominal_state());
 
-					// Get inverse covaraince
-			        matrixdb inv_Sigma_j(list_inv_covariance[j]);
-
 			        // Get difference
 			        vectordb diff_j(nominal_state_j-nominal_state);
 
 					// Check if history_i is child of history
-					double distance_j(sqrt(diff_j.dot(inv_Sigma_j*diff_j)));
+					double distance_j(sqrt(diff_j.dot(list_inv_covariance[j]*diff_j)));
 
 					if (distance_j <= distance) {
 						update_child = false;
@@ -552,7 +547,7 @@ void AULSolver::solve(
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
     			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
   				for (size_t k=0; k<N+1; k++) {
-  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.95; // perturbation lambda
+  					list_lambda_mu_i.first[k] = list_lambda_mu_i.first[k]*0.5; // perturbation lambda
   				}
     			list_lambda_mu[i] = list_lambda_mu_i;
 			}
@@ -583,8 +578,8 @@ void AULSolver::solve(
 		if (p_list_trajectory_split->size() > 0) {
 			double alpha_ip1(p_list_trajectory_split->at(0).splitting_history().alpha());
 			beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
-			this->set_path_quantile(sqrt(inv_chi_2_cdf(Nineq + 1, 1 - beta_star)));
-			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(Ntineq + 1, 1 - beta_star)));
+			this->set_path_quantile(sqrt(inv_chi_2_cdf(coef*Nineq + 1, 1 - beta_star)));
+			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(coef*Ntineq + 1, 1 - beta_star)));
 		}
 		d_th_order_failure_risk_ += d_th_order_failure_risk_k*alpha_i;
 		DDP_n_iter_ += DDP_n_iter;
