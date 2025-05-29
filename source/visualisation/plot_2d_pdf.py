@@ -206,9 +206,6 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
     # Normalisation
     if denormalise:
         LU = dataset.spacecraft_parameters.constants.LU
-        for k in range(nb_GMM):
-            list_data_state[k][axis_0,:] *= LU
-            list_data_state[k][axis_1,:] *= LU
 
         # Sample
         if sample_size != 0:
@@ -235,7 +232,6 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
                 y_max = y
             if y < y_min:
                 y_min = y
-
             ax.scatter(x, y,
                 alpha=transparancy,
                 s=marker_size,

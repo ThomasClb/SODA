@@ -52,8 +52,8 @@ const vector<pair<double, size_t>> RobustTrajectory::get_mahalanobis_distance(
     vector<pair<double, size_t>> output(this->size());
     for (size_t i=0; i<this->size(); i++) {
         vectordb x_ref(this->at(i).list_x()[0].nominal_state());
-        x_ref = x - x_ref;
-        output[i].first = sqrt(x_ref.dot(list_inv_covariance_[i]*x_ref));
+        x_ref = (x - x_ref).extract(0, 5);
+        output[i].first = sqrt(x_ref.dot(list_inv_covariance_[i].submat(5,5)*x_ref));
         output[i].second = i;
     }
     sort(output.begin(), output.end());
@@ -67,7 +67,7 @@ const vector<pair<double, size_t>> RobustTrajectory::get_distance(
     vector<pair<double, size_t>> output(this->size());
     for (size_t i=0; i<this->size(); i++) {
         vectordb x_ref(this->at(i).list_x()[0].nominal_state());
-        x_ref = x - x_ref;
+        x_ref = (x - x_ref).extract(0, 5);
         output[i].first = x_ref.vnorm();
         output[i].second = i;
     }

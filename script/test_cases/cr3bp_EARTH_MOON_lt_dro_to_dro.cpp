@@ -28,7 +28,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	unsigned int Ntineq = 1;
 	bool with_J2 = false;
 	double cost_to_go_gain = 1e-1;
-	double terminal_cost_gain = 1e4;
+	double terminal_cost_gain = 1e5;
 	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
 			1/position_error_sqr, 1/position_error_sqr, 1/position_error_sqr,
@@ -36,7 +36,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	double mass_leak = 5e-6;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
 	vectordb huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 1e-3, 5e-4};
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-6;
@@ -48,14 +48,14 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	unsigned int AUL_max_iter = 80;
 	unsigned int PN_max_iter = 3000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 5};
+	vectordb mu_parameters{1, 1e8, 10};
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
 	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.5};
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
-	vectordb PN_transcription_parameters{0.9, 1e-6, 1e-3, 0.2};
+	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.2};
 	unsigned int saving_iterations = 0;
 
 	return SolverParameters(
@@ -146,7 +146,8 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 		0.0, 0.0};
 
 	// Init solver parameters
-	double terminal_position_error_sqr = sqr(position_error); double terminal_velocity_error_sqr = sqr(velocity_error);
+	double terminal_position_error_sqr = sqr(position_error/10);
+	double terminal_velocity_error_sqr = sqr(velocity_error/10);
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),

@@ -114,6 +114,7 @@ public:
 	// See: https://github.com/RoboticExplorationLab/Altro.jl
 	// No unit test.
 	double line_search_(
+		statedb const& x_0, 
 		statedb const& x_goal,
 		sym_tridiag_matrixdb const& tridiag_L,
 		std::vector<DACE::matrixdb> const& block_D,
@@ -140,6 +141,7 @@ public:
 	// Updates the derivatives.
 	// No unit test.
 	void update_constraints_(
+		statedb const& x_0, 
 		statedb const& x_goal, bool const& force_DA);
 
 	// Computes the new constraints given states and controls.
@@ -147,6 +149,7 @@ public:
 	// Faster than update_constraints_.
 	// No unit test.
 	DACE::vectordb update_constraints_double_(
+			statedb const& x_0, 
 			statedb const& x_goal,
 			DACE::vectordb const& X_U,
 			DACE::vectordb const& correction);

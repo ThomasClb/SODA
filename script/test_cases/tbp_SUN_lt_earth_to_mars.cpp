@@ -39,6 +39,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	// Study alpha_min
 	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995}; 
 	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 5e-4};
+
 	if (transcription_beta == 0.05 && LOADS_max_depth == 0.05) {
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 1e-3};

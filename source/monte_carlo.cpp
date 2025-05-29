@@ -100,16 +100,12 @@ vectordb propagate_trajectory(
 	}
 
 	// Find nominal trajectory
-	// vector<pair<double, size_t>> list_maha = robust_trajectory.get_mahalanobis_distance(x_0_sample);
 	vector<pair<double, size_t>> list_maha = robust_trajectory.get_mahalanobis_distance(x_0_sample);
 	size_t index_nominal(list_maha[0].second);
 
 	// TO DO other method
 	vector<statedb> list_x(robust_trajectory[index_nominal].list_x());
 	vector<controldb> list_u(robust_trajectory[index_nominal].list_u());
-
-	typedef std::numeric_limits<double> dbl;
-	cout.precision(8);
 
 	// Loop on all steps
 	for (size_t i = 0; i < N; i++) {

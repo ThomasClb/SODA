@@ -89,16 +89,16 @@ void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 
 	// First control
 	list_Sigma_.push_back(trajectory_split.list_x()[0].Sigma());
-	vectordb u_0 = trajectory_split.list_u()[0].nominal_control();
+	vectordb u_i = trajectory_split.list_u()[0].nominal_control();
 	list_feedback_gain_.push_back(trajectory_split.list_u()[0].feedback_gain());
 	for (size_t j=0; j<Nu; j++)  {
-		X_U_[j] = u_0[j];
+		X_U_[j] = u_i[j];
 	}
 
 	// Loop
 	for (size_t i=1; i<N; i++) {
 		vectordb x_i = trajectory_split.list_x()[i].nominal_state();
-		vectordb u_i = trajectory_split.list_u()[i].nominal_control();
+		u_i = trajectory_split.list_u()[i].nominal_control();
 		list_Sigma_.push_back(trajectory_split.list_x()[i].Sigma());
 		list_feedback_gain_.push_back(trajectory_split.list_u()[i].feedback_gain());
 		for (size_t j=0; j<Nx; j++)  {
@@ -138,7 +138,7 @@ void PNSolver::update_robust_trajectory(
 	list_x.reserve(N); list_u.reserve(N);
 	
 	// Transfer data to the output lists
-	controldb u(X_U_.extract( 0, Nu - 1));
+	controldb u(X_U_.extract(0, Nu - 1));
 	u.set_feedback_gain(list_feedback_gain_[0]);
 	list_u.push_back(u);
 	statedb x;
@@ -146,7 +146,7 @@ void PNSolver::update_robust_trajectory(
 		x = X_U_.extract(
 			(i - 1) * (Nx + Nu) + Nu, (i - 1) * (Nx + Nu) + Nu + Nx - 1);
 		x.set_Sigma(list_Sigma_[i]);
-		x.set_der_dynamics(list_dynamics_eval_[i].linear());
+		x.set_der_dynamics(list_dynamics_eval_[i-1].linear());
 		list_x.push_back(x);
 		u = X_U_.extract(
 			i * (Nx + Nu), i * (Nx + Nu) + Nu - 1);
@@ -155,7 +155,7 @@ void PNSolver::update_robust_trajectory(
 	}
 	x = X_U_.extract(
 		(N - 1) * (Nx + Nu) + Nu, (N - 1) * (Nx + Nu) + Nu + Nx - 1);
-	x.set_Sigma(list_Sigma_[N-1]);
+	x.set_Sigma(list_Sigma_[N]);
 	x.set_der_dynamics(list_dynamics_eval_[N-1].linear());
 	list_x.push_back(x);
 
@@ -253,6 +253,7 @@ void PNSolver::solve(
 		double violation_prev = 1e15;
 		unsigned int n_iter = 0;
 		set_list_x_u(p_list_trajectory_split->at(k));
+		statedb x_0(p_list_trajectory_split->at(k).list_x()[0]);
 		solver_parameters_.set_path_quantile(
 			sqrt(inv_chi_2_cdf(N*Nineq + Ntineq, 1 - beta_star)));
 
@@ -264,11 +265,10 @@ void PNSolver::solve(
 			true);
 
 		// Evaluate constraints
-		update_constraints_(x_goal, false);
+		update_constraints_(x_0, x_goal, true);
 		violation_ = get_max_constraint_(INEQ_);
 		double continuity_violation = get_max_continuity_constraint_(INEQ_);
-		d_th_order_failure_risk_k = evaluate_risk();
-		
+		d_th_order_failure_risk_k = evaluate_risk();	
 		
 		auto start = high_resolution_clock::now();
 		auto stop = high_resolution_clock::now();
@@ -286,7 +286,8 @@ void PNSolver::solve(
 			// Check termination constraints
 			bool converged = (
 				(violation_ == violation_prev && eta_ == 1.0) || // No progress can be made
-				(violation_ < 10*constraint_tol && abs(violation_ - violation_prev)/violation_prev < 1e-3 && d_th_order_failure_risk_k <= beta_star) || // No progress can be made
+				(violation_ < 10*constraint_tol && abs(violation_ - violation_prev)/violation_prev < 1e-3 
+				&& d_th_order_failure_risk_k <= beta_star) || // No progress can be made
 				violation_ < constraint_tol && (eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
 			bool update_fact = 
 				((violation_ < constraint_tol*1e3 || abs(violation_ - violation_prev)/violation_prev < 1e-3) &&
@@ -305,7 +306,7 @@ void PNSolver::solve(
 
 			// Update the constraints using DA
 			if (i != 0) {
-				update_constraints_(x_goal, false);
+				update_constraints_(x_0, x_goal, false);
 				violation_ = get_max_constraint_(INEQ_);
 				continuity_violation = get_max_continuity_constraint_(INEQ_);
 				d_th_order_failure_risk_k = evaluate_risk();
@@ -328,7 +329,7 @@ void PNSolver::solve(
 			// Line search loop
 			cv_rate = 1e15; double violation_0 = violation_;
 			violation_prev = violation_;
-			for (size_t j = 0; j < 20; j++) {
+			for (size_t j = 0; j < 10; j++) {
 				// Termination checks
 				converged = (
 					violation_ < constraint_tol && 
@@ -337,7 +338,9 @@ void PNSolver::solve(
 					break;
 
 				// Line search
-				violation_ = line_search_(x_goal, L, block_D, get<0>(constraints), violation_0);
+				violation_ = line_search_(
+					x_0,
+					x_goal, L, block_D, get<0>(constraints), violation_0);
 				continuity_violation = get_max_continuity_constraint_(INEQ_);
 
 				// Update cv_rate
@@ -376,8 +379,8 @@ void PNSolver::solve(
 		double delta_k(beta_star-beta_T_k);
 		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
 		if (k+1 < K) {
-			double alpha_kp1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
-			beta_star = min(1.0 - EPS, solver_parameters_.transcription_beta() + alpha_k/alpha_kp1*delta_k);
+			double alpha_ip1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
+			beta_star = min(1.0 - EPS, solver_parameters_.transcription_beta() + alpha_k/alpha_ip1*delta_k);
 		}
 		d_th_order_failure_risk_ += alpha_k*d_th_order_failure_risk_k;
 		duration_total += duration_pn;		
@@ -396,6 +399,7 @@ void PNSolver::solve(
 // Inspired from ALTRO (Julia).
 // See: https://github.com/RoboticExplorationLab/Altro.jl
 double PNSolver::line_search_(
+	statedb const& x_0,
 	statedb const& x_goal,
 	sym_tridiag_matrixdb const& L,
 	vector<matrixdb> const& block_D,
@@ -445,7 +449,7 @@ double PNSolver::line_search_(
 
 		// Evaluate constraints
 		vectordb INEQ = update_constraints_double_( 
-			x_goal, X_U, correction);
+			x_0, x_goal, X_U, correction);
 
 		// Get the max constraint
 		violation = get_max_constraint_(INEQ);
@@ -554,6 +558,7 @@ double PNSolver::get_max_continuity_constraint_(
 // Can recompute all DA maps and the dynamics.
 // Updates the derivatives.
 void PNSolver::update_constraints_(
+	statedb const& x_0,
 	statedb const& x_goal,
 	bool const& force_DA) {
 	// Unpack
@@ -573,11 +578,11 @@ void PNSolver::update_constraints_(
 
 	// Loop on all steps
 	vectorDA x_DA, u_DA, dx_u_DA;
-	vectordb x_kp1, dx_u(Nx + Nu);
+	vectordb x_ip1, dx_u(Nx + Nu);
 	vectorDA INEQ_stochastic(N*(Nineq + 0) + Ntineq + 0, 0);
 	for (size_t i = 0; i < N; i++) {
 
-		// Get dx_u and x_kp1
+		// Get dx_u and x_ip1
 		if (!force_DA) {
 			for (size_t j=0; j<Nu; j++) {dx_u[Nx + j] = correction_[i*(Nu + Nx) + j];}
 			if (i == 0) 
@@ -586,13 +591,13 @@ void PNSolver::update_constraints_(
 				for (size_t j=0; j<Nx; j++) {dx_u[j] = correction_[(i - 1)*(Nu + Nx) + Nu + j];}
 			dx_u_DA = id_vector(dx_u, 0, 0, Nx + Nu);
 		}
-		x_kp1 = X_U_.extract(
+		x_ip1 = X_U_.extract(
 				Nu + i*(Nx + Nu),
 				Nu + Nx - 1 + i*(Nx + Nu));
 
 		// Get DA x, u
-		if (i == 0)
-			x_DA = id_vector(X_U_.extract(Nu, Nu + Nx - 1),
+		if (i == 0) // HERE
+			x_DA = id_vector(x_0.nominal_state(),
 				0, 0, Nx - 1);
 		else 
 			x_DA = id_vector(
@@ -615,19 +620,18 @@ void PNSolver::update_constraints_(
 		double norm = dx_u.vnorm();
 
 		// Compute the next step using the previous map
-		vectorDA x_kp1_eval;
+		vectorDA x_ip1_eval;
 		if (norm < radius && !force_DA) {
-			x_kp1_eval = dynamics_eval.eval(dx_u_DA);	
+			x_ip1_eval = dynamics_eval.eval(dx_u_DA);	
 		} else { // Compute from scratch	
-			x_kp1_eval = dynamics_.dynamic()(
+			x_ip1_eval = dynamics_.dynamic()(
 				x_DA, u_DA,
 				spacecraft_parameters_, constants, solver_parameters_);
 		}
-
-		list_dynamics_eval_[i] = x_kp1_eval;
+		list_dynamics_eval_[i] = x_ip1_eval;
 
 		// Get Sigma
-		matrixdb der_x = x_kp1_eval.linear();
+		matrixdb der_x = x_ip1_eval.linear();
 		matrixdb mat_detla_i = der_x.submat(0, 0, Nx - 1, Nx - 1)
 			+ der_x.submat(0, Nx, Nx - 1, Nx + Nu -1)*list_feedback_gain_[i];
 		list_Sigma_[i+1] = mat_detla_i*list_Sigma_[i]*mat_detla_i.transpose()
@@ -643,13 +647,13 @@ void PNSolver::update_constraints_(
 			INEQ_stochastic[i*(Nineq + 0) + k] = constraints_eval[k];}
 
 		// Add continuity constraints
-		vectorDA eq_eval = x_kp1_eval - x_kp1;
+		vectorDA eq_eval = x_ip1_eval - x_ip1;
 
 		// Get derivatives
 		vector<matrixdb> der_eq = deriv_xu(
 			eq_eval, Nx, Nu, false);
 		
-		// Dependency with kp1
+		// Dependency with ip1
 		der_INEQ_[6*i] = der_eq[0];
 		der_INEQ_[6*i + 1] = der_eq[1];
 		der_INEQ_[6*i + 2] = id_Nx;
@@ -715,6 +719,7 @@ void PNSolver::update_constraints_(
 // Uses the DA mapping of the dynamics.
 // Faster than update_constraints_.
 vectordb PNSolver::update_constraints_double_(
+	statedb const& x_0,
 	statedb const& x_goal,
 	vectordb const& X_U,
 	vectordb const& correction) {
@@ -745,8 +750,8 @@ vectordb PNSolver::update_constraints_double_(
 			dx_u[Nx + j] = corr[i*(Nu + Nx) + j];
 		}
 		if (i == 0) {
-			x = X_U_.extract(Nu, Nu + Nx - 1); // Never changes
-			for (size_t j=0; j<Nx; j++) {
+			x = x_0.nominal_state(); // HERE
+			for (size_t j=0; j<Nx; j++) { // No change possible
 				dx_u[j] = 0.0;
 			}
 		}
@@ -766,11 +771,11 @@ vectordb PNSolver::update_constraints_double_(
 		double norm = dx_u.vnorm();
 
 		// Compiute the next step
-		vectordb x_kp1_eval;
+		vectordb x_ip1_eval;
 		if (norm < radius)
-			x_kp1_eval = dynamics_eval.eval(dx_u) - xp1;
+			x_ip1_eval = dynamics_eval.eval(dx_u) - xp1;
 		else
-			x_kp1_eval = dynamics_.dynamic_db()(
+			x_ip1_eval = dynamics_.dynamic_db()(
 				x, u, spacecraft_parameters_, constants, solver_parameters_) - xp1;
 
 		// Get DA x, u
@@ -783,7 +788,7 @@ vectordb PNSolver::update_constraints_double_(
 
 		// Assign
 		for (size_t k = 0; k < Nx; k++) {
-			INEQ[i*(Nx + Nineq + 0) + k] = x_kp1_eval[k];}
+			INEQ[i*(Nx + Nineq + 0) + k] = x_ip1_eval[k];}
 		for (size_t k = 0; k < Nineq; k++) {
 			INEQ_stochastic[i*(Nineq + 0) + k] = constraints_eval[k];}
 	}
@@ -877,10 +882,10 @@ linearised_constraints PNSolver::get_linearised_constraints_() {
 			(2 * Nx + Nu));
 		matrixdb der_eq_x = der_INEQ_[6*i];
 		matrixdb der_eq_u = der_INEQ_[6*i + 1];
-		matrixdb der_eq_x_kp1 = der_INEQ_[6*i + 2];
+		matrixdb der_eq_x_ip1 = der_INEQ_[6*i + 2];
 		matrixdb der_ineq_x = der_INEQ_[6*i + 3];
 		matrixdb der_ineq_u = der_INEQ_[6*i + 4];
-		matrixdb der_ineq_x_kp1 = der_INEQ_[6*i + 5];
+		matrixdb der_ineq_x_ip1 = der_INEQ_[6*i + 5];
 
 		// Inequality constraints
 		for (size_t j = 0; j < list_active_ineq_index.size(); j++) {
@@ -888,13 +893,13 @@ linearised_constraints PNSolver::get_linearised_constraints_() {
 			size_t active_ineq_index_j = list_active_ineq_index[j];
 			vectordb dx(der_ineq_x.getrow(active_ineq_index_j));
 			vectordb du(der_ineq_u.getrow(active_ineq_index_j));
-			vectordb dxkp1(der_ineq_x_kp1.getrow(active_ineq_index_j));
+			vectordb dxip1(der_ineq_x_ip1.getrow(active_ineq_index_j));
 
 			// Assign to D_i
 			size_t index_j = j;
 			for (size_t k = 0; k < Nx; k++) {
 				D_i.at(index_j, k) = dx[k];
-				D_i.at(index_j, k + Nx + Nu) = dxkp1[k];
+				D_i.at(index_j, k + Nx + Nu) = dxip1[k];
 			}
 			for (size_t k = 0; k < Nu; k++) {
 				D_i.at(index_j, k + Nx) = du[k];
@@ -907,13 +912,13 @@ linearised_constraints PNSolver::get_linearised_constraints_() {
 			size_t active_c_index_j = list_active_c_index[j];
 			vectordb dx(der_eq_x.getrow(active_c_index_j));
 			vectordb du(der_eq_u.getrow(active_c_index_j));
-			vectordb dxkp1(der_eq_x_kp1.getrow(active_c_index_j));
+			vectordb dxip1(der_eq_x_ip1.getrow(active_c_index_j));
 
 			// Assign to D_i
 			size_t index_j = j + Nineq_active;
 			for (size_t k = 0; k < Nx; k++) {
 				D_i.at(index_j, k) = dx[k];
-				D_i.at(index_j, k + Nx + Nu) = dxkp1[k];
+				D_i.at(index_j, k + Nx + Nu) = dxip1[k];
 			}
 			for (size_t k = 0; k < Nu; k++) {
 				D_i.at(index_j, k + Nx) = du[k];
