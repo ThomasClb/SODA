@@ -180,7 +180,7 @@ void AULSolver::update_mu_() {
 }
 
 // Computes the d-th order risk.
-// DOI: WIP
+// DOI: 10.48550/arXiv.2502.15949
 double AULSolver::evaluate_risk() {
 	// Unpack parameters
 	SolverParameters solver_parameters = DDPsolver_.solver_parameters();
@@ -191,14 +191,11 @@ double AULSolver::evaluate_risk() {
 	unsigned int Ntineq = solver_parameters.Ntineq();
 	vector<vectorDA> list_constraints_eval(DDPsolver_.list_deterministic_constraints_eval());
 	
-	// Compute diagonal blocks of Sigma
-	double max_beta_d(-1e15);
-
 	// Get diag and mean
 	vectordb mean, norm_vector;
 	mean.reserve(N*(Nineq) + Ntineq);
 	norm_vector.reserve(N*Nineq + Ntineq);
-	matrixdb Delta_i, Sigma_i;
+	matrixdb Delta_i, prod_i;
 	vector<matrixdb> der_constraints;
 	vectordb constraints_eval;
 	for (size_t i=0; i<N; i++) {
@@ -206,22 +203,27 @@ double AULSolver::evaluate_risk() {
 		der_constraints = deriv_xu(
 			list_constraints_eval[i], Nx, Nu, false);
 		Delta_i = der_constraints[0] + der_constraints[1]*trajectory_split_.list_u()[i].feedback_gain();
-		Sigma_i = Delta_i*trajectory_split_.list_x()[i].Sigma()*Delta_i.transpose();
+		prod_i = trajectory_split_.list_x()[i].Sigma()*Delta_i.transpose();
 		constraints_eval = list_constraints_eval[i].cons();
 		for (size_t j=0; j<Nineq; j++) {
 			mean.push_back(constraints_eval[j]);
-			norm_vector.push_back(Sigma_i.at(j,j));
+			norm_vector.push_back(
+				vectordb(Delta_i.getrow(j)).dot(vectordb(prod_i.getcol(j)))
+				);
 		}
 	}
 
 	// Unpack
 	der_constraints = deriv_x(
 			list_constraints_eval[N], Nx, false);
-	Sigma_i = der_constraints[0]*trajectory_split_.list_x()[N].Sigma()*der_constraints[0].transpose();
+	Delta_i = der_constraints[0];
+	prod_i = trajectory_split_.list_x()[N].Sigma()*Delta_i.transpose();
 	constraints_eval = list_constraints_eval[N].cons();
 	for (size_t j=0; j<Ntineq; j++) {
-			mean.push_back(constraints_eval[j]);
-			norm_vector.push_back(Sigma_i.at(j,j));
+		mean.push_back(constraints_eval[j]);
+		norm_vector.push_back(
+			vectordb(Delta_i.getrow(j)).dot(vectordb(prod_i.getcol(j)))
+			);
 	}
 
 	return max(0, dth_order_risk_estimation(mean, norm_vector));
@@ -242,6 +244,7 @@ void AULSolver::solve(
 	double AUL_tol = solver_parameters.AUL_tol();
 	double LOADS_tol = solver_parameters.LOADS_tol();
 	double LOADS_max_depth = solver_parameters.LOADS_max_depth();
+	double AUL_transcription_parameter = solver_parameters.AUL_transcription_parameter();
 	int AUL_max_iter = solver_parameters.AUL_max_iter();
 	vectordb mu_parameters = solver_parameters.mu_parameters();
 	vectordb lambda_parameters = solver_parameters.lambda_parameters();
@@ -279,9 +282,10 @@ void AULSolver::solve(
 	// Set quantiles
 	double beta_star(solver_parameters.transcription_beta());
 	d_th_order_failure_risk_ = 0;
-	double coef = 2.5;
-	this->set_path_quantile(sqrt(inv_chi_2_cdf(coef*Nineq + 1, 1 - beta_star)));
-	this->set_terminal_quantile(sqrt(inv_chi_2_cdf(coef*Ntineq + 1, 1 - beta_star)));
+	this->set_path_quantile(sqrt(
+		inv_chi_2_cdf(AUL_transcription_parameter*Nineq + 1, 1 - beta_star)));
+	this->set_terminal_quantile(sqrt(
+		inv_chi_2_cdf(AUL_transcription_parameter*Ntineq + 1, 1 - beta_star)));
 
 	// Init Robust Trajectory
 	deque<TrajectorySplit> list_trajectory_split;
@@ -578,8 +582,10 @@ void AULSolver::solve(
 		if (p_list_trajectory_split->size() > 0) {
 			double alpha_ip1(p_list_trajectory_split->at(0).splitting_history().alpha());
 			beta_star = min(1.0 - EPS, solver_parameters.transcription_beta() + alpha_i/alpha_ip1*delta_i);
-			this->set_path_quantile(sqrt(inv_chi_2_cdf(coef*Nineq + 1, 1 - beta_star)));
-			this->set_terminal_quantile(sqrt(inv_chi_2_cdf(coef*Ntineq + 1, 1 - beta_star)));
+			this->set_path_quantile(sqrt(
+				inv_chi_2_cdf(AUL_transcription_parameter*Nineq + 1, 1 - beta_star)));
+			this->set_terminal_quantile(sqrt(
+				inv_chi_2_cdf(AUL_transcription_parameter*Ntineq + 1, 1 - beta_star)));
 		}
 		d_th_order_failure_risk_ += d_th_order_failure_risk_k*alpha_i;
 		DDP_n_iter_ += DDP_n_iter;

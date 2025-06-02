@@ -96,6 +96,7 @@ public:
 		std::deque<TrajectorySplit>* const& p_list_trajectory_split,
 		std::size_t const& k);
 
+	// Updates the transcription method parameter eta.
 	void update_eta_(
 		double const& beta_star,
 		double const& beta_d,

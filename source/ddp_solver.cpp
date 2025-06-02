@@ -1005,13 +1005,13 @@ void DDPSolver::solve(
 		auto start = high_resolution_clock::now();
 
 		// Backward sweep 
-		backward_sweep_iLQR_();
-		/*
+		// backward_sweep_iLQR_();
+		
 		if (d_cost > 10*tol)
 			backward_sweep_iLQR_();
 		else
 			backward_sweep_DDP_();
-		*/
+		/**/
 		// Forward pass init
 		list_x_ = vector<statedb>(1, x0);
 		list_u_ = vector<controldb>();

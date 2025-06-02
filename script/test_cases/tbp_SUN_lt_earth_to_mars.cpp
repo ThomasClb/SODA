@@ -32,22 +32,40 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		vectordb{
 			1/position_error_sqr, 1/position_error_sqr, 1/(position_error_sqr),
 			1/velocity_error_sqr, 1/velocity_error_sqr, 1/(velocity_error_sqr)});
-	double mass_leak = 1e-4;
+	double mass_leak = 1e-5;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
 
 	// Study alpha_min
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995}; 
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 2e-3, 5e-4};
 
-	if (transcription_beta == 0.05 && LOADS_max_depth == 0.05) {
+	// Default
+	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995}; 
+	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 5e-3, 1e-3};
+
+	if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.2) || 
+		(transcription_beta == 0.005 && LOADS_max_depth == 0.05)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.1)) {
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 1e-3};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-3};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.01)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-4};
+	} else if (
+		(transcription_beta == 0.5 && LOADS_max_depth == 0.05) ) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-4};
 	}
+
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
 	double PN_tol = 1e-13;
 	double LOADS_tol = 1e-3;
+	double AUL_transcription_parameter = 1.0;
 	double PN_active_constraint_tol = 1e-15;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -77,6 +95,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
 		LOADS_tol, LOADS_max_depth,
+		AUL_transcription_parameter,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,

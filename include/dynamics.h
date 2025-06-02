@@ -599,10 +599,9 @@ DACE::AlgebraicVector<T> inequality_constraints_cr3bp_EARTH_MOON_lt(
 	double T_max = spacecraft_parameters.thrust(); // [THRUSTU]
 	double dry_mass = spacecraft_parameters.dry_mass(); // [MASSU]
 	double initial_mass = spacecraft_parameters.initial_mass(); // [MASSU]
-	T x_0(x[0]), x_1(x[1]), x_2(x[2]);
 
 	// Init
-	DACE::AlgebraicVector<T> output; output.reserve(1 + 1 + 2);
+	DACE::AlgebraicVector<T> output; output.reserve(1 + 1);
 
 	// Thrust (1)
 	T T_const = u.dot(u) - T_max*T_max; // [THRUSTU²]
@@ -610,13 +609,6 @@ DACE::AlgebraicVector<T> inequality_constraints_cr3bp_EARTH_MOON_lt(
 
 	// Mass (1)
 	output.push_back(dry_mass - x[SIZE_VECTOR]); // [MASSU]
-
-	// Primaries (2)
-	T x_1p2_sqr(DACE::sqr(x_1) + DACE::sqr(x_2));
-	T r_1_sqr = DACE::sqr(x_0 - mu) + x_1p2_sqr;
-	T r_2_sqr = DACE::sqr(x_0  + 1 - mu) + x_1p2_sqr;
-	//output.push_back(R_EARTH/lu - r_1_sqr); // Earth
-	//output.push_back(R_MOON/lu - r_2_sqr); // Moon
 	
 	return output;
 }
@@ -727,7 +719,7 @@ DACE::AlgebraicVector<T> terminal_inequality_constraints(
 
 	// Get Mahalanobis distance
 	T mahalanobis_distance = ((difference.transpose()*terminal_cost_inv_covariance)*difference).at(0,0)
-		-inv_chi_2_cdf(difference.size(), 1 - 0.05); // 95% sphere 
+		- inv_chi_2_cdf(difference.size(), 1 - 0.05); // 95% sphere 
 
 	// Return 
 	return DACE::AlgebraicVector<T>{mahalanobis_distance/gain};

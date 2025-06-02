@@ -36,16 +36,17 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	double mass_leak = 5e-6;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
-	vectordb huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 1e-3, 5e-4};
+	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+	vectordb huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 1e-3, 1e-3};
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-6;
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-3;
+	double AUL_transcription_parameter = 1.0;
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
-	unsigned int AUL_max_iter = 80;
+	unsigned int AUL_max_iter = 100;
 	unsigned int PN_max_iter = 3000;
 	vectordb lambda_parameters{0.0, 1e8};
 	vectordb mu_parameters{1, 1e8, 10};
@@ -71,6 +72,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
 		LOADS_tol, LOADS_max_depth,
+		AUL_transcription_parameter,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,
@@ -139,7 +141,7 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	SpacecraftParameters spacecraft_parameters(spacecraft_parameters_file);
 
 	// Uncertainties
-	double position_error = 1e-6; double velocity_error = 1e-5;
+	double position_error = 5e-6; double velocity_error = 5e-5; 
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error/100,
 		velocity_error, velocity_error, velocity_error/100,

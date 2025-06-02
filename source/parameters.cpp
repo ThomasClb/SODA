@@ -174,6 +174,7 @@ SolverParameters::SolverParameters() :
 	DDP_type_(0),
 	DDP_tol_(1e-4), AUL_tol_(1e-4), PN_tol_(1e-12),
 	LOADS_tol_(1e-2), LOADS_max_depth_(1),
+	AUL_transcription_parameter_(1.0),
 	DDP_max_iter_(100), AUL_max_iter_(100), PN_max_iter_(60),
 	line_search_parameters_(vectordb{ 1e-8 , 10.0, 0.5, 20}),
 	backward_sweep_regulation_(true),
@@ -231,6 +232,7 @@ SolverParameters::SolverParameters(
 	unsigned int const& DDP_type,
 	double const& DDP_tol, double const& AUL_tol, double const& PN_tol,
 	double const& LOADS_tol, double const& LOADS_max_depth,
+	double const& AUL_transcription_parameter,
 	unsigned int const& DDP_max_iter, unsigned int const& AUL_max_iter,
 	unsigned int const& PN_max_iter,
 	vectordb const& line_search_parameters, bool const& backward_sweep_regulation, 
@@ -257,6 +259,7 @@ SolverParameters::SolverParameters(
 	DDP_type_(DDP_type),
 	DDP_tol_(DDP_tol), AUL_tol_(AUL_tol), PN_tol_(PN_tol),
 	LOADS_tol_(LOADS_tol), LOADS_max_depth_(LOADS_max_depth),
+	AUL_transcription_parameter_(AUL_transcription_parameter),
 	DDP_max_iter_(DDP_max_iter), AUL_max_iter_(AUL_max_iter), PN_max_iter_(PN_max_iter),
 	line_search_parameters_(line_search_parameters), backward_sweep_regulation_(backward_sweep_regulation),
 	backward_sweep_regulation_parameters_(backward_sweep_regulation_parameters),
@@ -318,6 +321,7 @@ SolverParameters::SolverParameters(SolverParameters const& param) :
 	DDP_type_(param.DDP_type_),
 	DDP_tol_(param.DDP_tol_), AUL_tol_(param.AUL_tol_), PN_tol_(param.PN_tol_),
 	LOADS_tol_(param.LOADS_tol_), LOADS_max_depth_(param.LOADS_max_depth_),
+	AUL_transcription_parameter_(param.AUL_transcription_parameter_),
 	DDP_max_iter_(param.DDP_max_iter_), AUL_max_iter_(param.AUL_max_iter_),
 	PN_max_iter_(param.PN_max_iter_),
 	list_lambda_(param.list_lambda_), list_mu_(param.list_mu_),
@@ -370,6 +374,7 @@ const double SolverParameters::AUL_tol() const { return AUL_tol_; }
 const double SolverParameters::PN_tol() const { return PN_tol_; }
 const double SolverParameters::LOADS_tol() const { return LOADS_tol_; }
 const double SolverParameters::LOADS_max_depth() const { return LOADS_max_depth_; }
+const double SolverParameters::AUL_transcription_parameter() const { return AUL_transcription_parameter_; }
 const unsigned int SolverParameters::DDP_max_iter() const { return DDP_max_iter_; }
 const unsigned int SolverParameters::AUL_max_iter() const { return AUL_max_iter_; }
 const unsigned int SolverParameters::PN_max_iter() const { return PN_max_iter_; }

@@ -253,7 +253,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     # Axes
     list_axis = [[0, 1],[3, 4]]
     if "halo" in dataset.file_name:
-        list_axis = [[0, 1], [0, 2]]
+        list_axis = [[0, 1], [0, 2], [3, 4], [3, 5]]
     sampling = 4
     
     # Ellipses
@@ -262,7 +262,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     ellipse_nb_points = 404
     levels_min, levels_max = -5, 0
     nb_levels = 10
-    ellipse_levels = np.linspace(0.1, 1, nb_levels)
+    ellipse_levels =  [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] # np.linspace(0.01, 1, nb_levels)
     plot_CL = True
     
     # System points

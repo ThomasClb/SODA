@@ -165,6 +165,7 @@ void PNSolver::update_robust_trajectory(
 	p_list_trajectory_split->at(k).set_list_dynamics_eval(list_dynamics_eval_);
 }
 
+// Updates the transcription method parameter eta.
 void PNSolver::update_eta_(
 	double const& beta_star,
 	double const& beta_d,
@@ -273,88 +274,91 @@ void PNSolver::solve(
 		auto start = high_resolution_clock::now();
 		auto stop = high_resolution_clock::now();
 		duration_pn = 0.0;
-		for (size_t i = 0; i < max_iter; i++) {
-			n_iter ++;
+		// cout << 100*beta_star << " - " << 100*d_th_order_failure_risk_k << endl;
+		if (d_th_order_failure_risk_k > beta_star) {
+			for (size_t i = 0; i < max_iter; i++) {
+				n_iter ++;
 
-			// Output
-			stop = high_resolution_clock::now();
-			double duration = static_cast<double>((duration_cast<microseconds>(stop - start)).count()) / 1e6;
-			duration_pn += duration;
-			string duration_str = to_string(duration);
-			start = high_resolution_clock::now();
+				// Output
+				stop = high_resolution_clock::now();
+				double duration = static_cast<double>((duration_cast<microseconds>(stop - start)).count()) / 1e6;
+				duration_pn += duration;
+				string duration_str = to_string(duration);
+				start = high_resolution_clock::now();
 
-			// Check termination constraints
-			bool converged = (
-				(violation_ == violation_prev && eta_ == 1.0) || // No progress can be made
-				(violation_ < 10*constraint_tol && abs(violation_ - violation_prev)/violation_prev < 1e-3 
-				&& d_th_order_failure_risk_k <= beta_star) || // No progress can be made
-				violation_ < constraint_tol && (eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
-			bool update_fact = 
-				((violation_ < constraint_tol*1e3 || abs(violation_ - violation_prev)/violation_prev < 1e-3) &&
-				d_th_order_failure_risk_k > beta_star &&
-				eta_ < 1.0) ||
-				(violation_ > constraint_tol*10 && d_th_order_failure_risk_k < beta_star/1.1);
+				// Check termination constraints
+				bool converged = (
+					(violation_ == violation_prev && eta_ == 1.0) || // No progress can be made
+					(violation_ < 10*constraint_tol && abs(violation_ - violation_prev)/violation_prev < 1e-3 
+					&& d_th_order_failure_risk_k <= beta_star) || // No progress can be made
+					violation_ < constraint_tol && (eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
+				bool update_fact = 
+					((violation_ < constraint_tol*1e3 || abs(violation_ - violation_prev)/violation_prev < 1e-3) &&
+					d_th_order_failure_risk_k > beta_star &&
+					eta_ < 1.0) ||
+					(violation_ > constraint_tol*10 && d_th_order_failure_risk_k < beta_star/1.1);
 
-			if (update_fact) {
-				update_eta_(
-					beta_star, d_th_order_failure_risk_k,
-					violation_, violation_prev,
-					false);
-			}
-			else if (converged)
-				break;
-
-			// Update the constraints using DA
-			if (i != 0) {
-				update_constraints_(x_0, x_goal, false);
-				violation_ = get_max_constraint_(INEQ_);
-				continuity_violation = get_max_continuity_constraint_(INEQ_);
-				d_th_order_failure_risk_k = evaluate_risk();
-			}
-
-			// Reset corrections
-			correction_ = vectordb(N*(Nx + Nu), 0);
-
-			// Build active constraint vector and its gradient
-			linearised_constraints constraints = get_linearised_constraints_();
-			vector<matrixdb> block_D = get<1>(constraints);
-			
-			// Make S = D * D^t as a tridiagonal matrix
-			sym_tridiag_matrixdb S = get_block_S_sq_(
-				block_D, get<2>(constraints));
-
-			// Compute block tridiagonal Cholesky factorisation of S.
-			sym_tridiag_matrixdb L = cholesky_(S);
-
-			// Line search loop
-			cv_rate = 1e15; double violation_0 = violation_;
-			violation_prev = violation_;
-			for (size_t j = 0; j < 10; j++) {
-				// Termination checks
-				converged = (
-					violation_ < constraint_tol && 
-						(eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
-				if (converged || cv_rate < cv_rate_threshold)
+				if (update_fact) {
+					update_eta_(
+						beta_star, d_th_order_failure_risk_k,
+						violation_, violation_prev,
+						false);
+				}
+				else if (converged)
 					break;
 
-				// Line search
-				violation_ = line_search_(
-					x_0,
-					x_goal, L, block_D, get<0>(constraints), violation_0);
-				continuity_violation = get_max_continuity_constraint_(INEQ_);
+				// Update the constraints using DA
+				if (i != 0) {
+					update_constraints_(x_0, x_goal, false);
+					violation_ = get_max_constraint_(INEQ_);
+					continuity_violation = get_max_continuity_constraint_(INEQ_);
+					d_th_order_failure_risk_k = evaluate_risk();
+				}
 
-				// Update cv_rate
-				cv_rate = log(violation_) / log(violation_0);
-				violation_0 = violation_;
-			}
-			if (verbosity == 1 && n_iter%10 == 0) {
-				cout << "	" << eta_ << ", " 
-				<< 100*beta_star << ", "
-				<< 100*d_th_order_failure_risk_k << ", "
-				<< n_iter << ", "
-				<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
-				<< violation_ << ", "
-				<< endl;
+				// Reset corrections
+				correction_ = vectordb(N*(Nx + Nu), 0);
+
+				// Build active constraint vector and its gradient
+				linearised_constraints constraints = get_linearised_constraints_();
+				vector<matrixdb> block_D = get<1>(constraints);
+				
+				// Make S = D * D^t as a tridiagonal matrix
+				sym_tridiag_matrixdb S = get_block_S_sq_(
+					block_D, get<2>(constraints));
+
+				// Compute block tridiagonal Cholesky factorisation of S.
+				sym_tridiag_matrixdb L = cholesky_(S);
+
+				// Line search loop
+				cv_rate = 1e15; double violation_0 = violation_;
+				violation_prev = violation_;
+				for (size_t j = 0; j < 20; j++) {
+					// Termination checks
+					converged = (
+						violation_ < constraint_tol && 
+							(eta_ == 1.0 || d_th_order_failure_risk_k <= beta_star));
+					if (converged || cv_rate < cv_rate_threshold)
+						break;
+
+					// Line search
+					violation_ = line_search_(
+						x_0,
+						x_goal, L, block_D, get<0>(constraints), violation_0);
+					continuity_violation = get_max_continuity_constraint_(INEQ_);
+
+					// Update cv_rate
+					cv_rate = log(violation_) / log(violation_0);
+					violation_0 = violation_;
+				}
+				if (verbosity == 1 && n_iter%10 == 0) {
+					cout << "	" << eta_ << ", " 
+					<< 100*beta_star << ", "
+					<< 100*d_th_order_failure_risk_k << ", "
+					<< n_iter << ", "
+					<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
+					<< violation_ << ", "
+					<< endl;
+				}
 			}
 		}
 		n_iter_ += n_iter;
@@ -376,7 +380,7 @@ void PNSolver::solve(
 		// Update beta_star
 		d_th_order_failure_risk_k = evaluate_risk();
 		double beta_T_k(min(beta_star, d_th_order_failure_risk_k));
-		double delta_k(beta_star-beta_T_k);
+		double delta_k(beta_star - beta_T_k);
 		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
 		if (k+1 < K) {
 			double alpha_ip1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
@@ -487,7 +491,7 @@ double PNSolver::evaluate_risk() {
 	vectordb mean, norm_vector;
 	mean.reserve(N*(Nineq) + Ntineq);
 	norm_vector.reserve(N*Nineq + Ntineq);
-	matrixdb D_f, Sigma;
+	matrixdb D_f, product;
 	vector<matrixdb> list_der;
 	vectordb constraints_eval;
 	for (size_t i=0; i<N; i++) {
@@ -495,22 +499,27 @@ double PNSolver::evaluate_risk() {
 		list_der = deriv_xu(
 			list_constraints_eval_[i], Nx, Nu, false);
 		D_f = list_der[0] + list_der[1]*list_feedback_gain_[i];
-		Sigma = D_f*list_Sigma_[i]*D_f.transpose();
+		product = list_Sigma_[i]*D_f.transpose();
 		constraints_eval = list_constraints_eval_[i].cons();
-		for (size_t j=0; j<constraints_eval.size(); j++) {
+		for (size_t j=0; j<Nineq; j++) {
 			mean.push_back(constraints_eval[j]);
-			norm_vector.push_back(Sigma.at(j,j));
+			norm_vector.push_back(
+				vectordb(D_f.getrow(j)).dot(vectordb(product.getcol(j)))
+				);
 		}
 	}
 
 	// Unpack
 	list_der = deriv_x(
 			list_constraints_eval_[N], Nx, false);
-	Sigma = list_der[0]*list_Sigma_[N]*list_der[0].transpose();
+	product = list_Sigma_[N]*D_f.transpose();
+	D_f = list_der[0];
 	constraints_eval = list_constraints_eval_[N].cons();
-	for (size_t j=0; j<constraints_eval.size(); j++) {
+	for (size_t j=0; j<Ntineq; j++) {
 		mean.push_back(constraints_eval[j]);
-		norm_vector.push_back(Sigma.at(j,j));
+		norm_vector.push_back(
+				vectordb(D_f.getrow(j)).dot(vectordb(product.getcol(j)))
+				);
 	}
 
 	// Return
@@ -596,7 +605,7 @@ void PNSolver::update_constraints_(
 				Nu + Nx - 1 + i*(Nx + Nu));
 
 		// Get DA x, u
-		if (i == 0) // HERE
+		if (i == 0)
 			x_DA = id_vector(x_0.nominal_state(),
 				0, 0, Nx - 1);
 		else 
@@ -750,7 +759,7 @@ vectordb PNSolver::update_constraints_double_(
 			dx_u[Nx + j] = corr[i*(Nu + Nx) + j];
 		}
 		if (i == 0) {
-			x = x_0.nominal_state(); // HERE
+			x = x_0.nominal_state();
 			for (size_t j=0; j<Nx; j++) { // No change possible
 				dx_u[j] = 0.0;
 			}
