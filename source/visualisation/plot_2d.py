@@ -403,7 +403,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     
     # Axes
     list_axis = [[0, 1]]
-    if "halo" in dataset.file_name:
+    if "halo" in dataset.file_name or "nrho" in dataset.file_name:
         list_axis = [[0, 1], [0, 2]]
     
     # Ellipses

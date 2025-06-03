@@ -28,7 +28,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	unsigned int Nineq = 2;
 	unsigned int Ntineq = 1;
 	bool with_J2 = false;
-	double cost_to_go_gain = 1e-5;
+	double cost_to_go_gain = 1e-3;
 	double terminal_cost_gain = 1e6;
 	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
@@ -39,13 +39,15 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	double huber_loss_coefficient = 5e-3;
 	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995};
 	vectordb huber_loss_coefficient_sequence{1e-2, 5e-3, 2e-3, 1e-3}; 
+	vectordb mu_parameters{1, 1e8, 10};
 	double AUL_transcription_parameter = 1;
 	if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05 && robust_solving) 
 		) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 1e-2, 1e-2};
-		AUL_transcription_parameter = 2.5;
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
+		AUL_transcription_parameter = 1.5; // 1.5
+		mu_parameters[2] = 15;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.5 && robust_solving) 
 		) {
@@ -63,7 +65,6 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	unsigned int AUL_max_iter = 100;
 	unsigned int PN_max_iter = 5000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 10};
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
 	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.6};
@@ -159,15 +160,15 @@ void cr3bp_EARTH_MOON_lt_nrho_to_dro(int argc, char** argv) {
 	SpacecraftParameters spacecraft_parameters(spacecraft_parameters_file);
 
 	// Uncertainties
-	double position_error = 1e-6; double velocity_error = 1e-5;
+	double position_error = 5e-6; double velocity_error = 1e-5;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error,
 		velocity_error, velocity_error, velocity_error,
 		0.0, 0.0};
 
 	// Init solver parameters
-	double terminal_position_error_sqr = sqr(position_error/20);
-	double terminal_velocity_error_sqr = sqr(velocity_error/20);
+	double terminal_position_error_sqr = sqr(position_error/10);
+	double terminal_velocity_error_sqr = sqr(velocity_error/10);
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),

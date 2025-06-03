@@ -512,8 +512,8 @@ double PNSolver::evaluate_risk() {
 	// Unpack
 	list_der = deriv_x(
 			list_constraints_eval_[N], Nx, false);
-	product = list_Sigma_[N]*D_f.transpose();
 	D_f = list_der[0];
+	product = list_Sigma_[N]*D_f.transpose();
 	constraints_eval = list_constraints_eval_[N].cons();
 	for (size_t j=0; j<Ntineq; j++) {
 		mean.push_back(constraints_eval[j]);
