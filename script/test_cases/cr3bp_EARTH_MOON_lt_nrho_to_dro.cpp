@@ -44,14 +44,14 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05 && robust_solving) 
 		) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
-		AUL_transcription_parameter = 1.5; // 1.5
-		mu_parameters[2] = 15;
+		homotopy_sequence = vectordb{0, 0.75, 0.975, 0.99}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 5e-3, 5e-3};
+		AUL_transcription_parameter = 1.5;
+		mu_parameters[2] = 10; // 2
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.5 && robust_solving) 
 		) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
 	}
 
@@ -160,7 +160,7 @@ void cr3bp_EARTH_MOON_lt_nrho_to_dro(int argc, char** argv) {
 	SpacecraftParameters spacecraft_parameters(spacecraft_parameters_file);
 
 	// Uncertainties
-	double position_error = 5e-6; double velocity_error = 1e-5;
+	double position_error = 5e-6; double velocity_error = 5e-5;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error,
 		velocity_error, velocity_error, velocity_error,

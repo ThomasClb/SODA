@@ -84,7 +84,8 @@ template<typename T> T chi_2_cdf(
 		return 0.0;
 
 	// Case disjunction
-	T r_div_2_i = r/2.0;
+	T r_div_2 = r/2.0;
+	T r_div_2_i = r_div_2;
 	T exp_r = exp(-r_div_2_i);
 	if (d%2 == 1) {
 		unsigned int p = (d-1)/2;
@@ -111,7 +112,7 @@ template<typename T> T chi_2_cdf(
 		for (unsigned int i=1; i<p; i++) {
 			inc_gamma = i*inc_gamma - r_div_2_i;
 			if (i + 1 != p)
-				r_div_2_i *= r_div_2_i;
+				r_div_2_i *= r_div_2;
 		}
 	}
 

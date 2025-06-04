@@ -177,7 +177,7 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = sqr(1e-5); terminal_velocity_error_sqr = sqr(1e-4);
+	terminal_position_error_sqr = sqr(position_error); terminal_velocity_error_sqr = sqr(velocity_error);
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),

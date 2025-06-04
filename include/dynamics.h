@@ -719,8 +719,7 @@ DACE::AlgebraicVector<T> terminal_inequality_constraints(
 
 	// Get Mahalanobis distance
 	T mahalanobis_distance = ((difference.transpose()*terminal_cost_inv_covariance)*difference).at(0,0)
-		- inv_chi_2_cdf(difference.size(), 1 - 0.05); // 95% sphere 
-
+		- inv_chi_2_cdf(difference.size(), 0.95); // 95% sphere 
 	// Return 
 	return DACE::AlgebraicVector<T>{mahalanobis_distance/gain};
 }

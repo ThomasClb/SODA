@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as clr
 from matplotlib.ticker import FormatStrFormatter
 import scipy.interpolate as interpolate
+from matplotlib.patches import Ellipse
 from scipy.stats import chi2, multivariate_normal
 
 from misc import get_Lagrange_point
@@ -30,6 +31,7 @@ ALPHA_1_GMM = 0.225224685253970 # Lateral weight [-]
 """    
 def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
                            list_colors, list_markers, lims,
+                           transparancy,
                            denormalise):    
     # Retrieve data
     nb_dataets = len(dataset.list_dataset_names)
@@ -37,15 +39,20 @@ def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
         if (dataset.list_dataset_names[i][0] == "Sigma GMM 0"):
                 data_Sigma = dataset.list_datasets[i].copy()
                 N = len(data_Sigma[0,:]) - 1
+        if (dataset.list_dataset_names[i][0] == "Arrival Sigma"):
+                data_arrival_Sigma = dataset.list_datasets[i].copy()
         if (dataset.list_dataset_names[i][0] == "Departure orbit"):
             data_departure = dataset.list_datasets[i].copy()
         if (dataset.list_dataset_names[i][0] == "Arrival orbit"):
             data_arrival = dataset.list_datasets[i].copy()
+    d = int(np.sqrt(len(data_Sigma[:,0])))
                 
     # Denormalise
     if denormalise:
         LU = dataset.spacecraft_parameters.constants.LU
-        data_state *= LU
+        data_arrival *= LU
+        data_departure *= LU
+        data_arrival_Sigma *= LU*LU
             
     # Plot departure and arrival
     if index == 0:
@@ -67,6 +74,30 @@ def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
             ax.text(data_arrival[axis_0, 0], data_arrival[axis_1, 0],
                     " $x_t$",
                       zorder=100)
+
+        # Store covariance
+        center = np.array([data_arrival[axis_0,0], data_arrival[axis_1,0]])
+        Sigma = np.array(data_arrival_Sigma[:,0]).reshape((d-2,d-2))
+        quad = np.zeros((2,2))
+        quad[0,0] = Sigma[axis_0, axis_0]
+        quad[1,1] = Sigma[axis_1, axis_1]
+        quad[0,1] = Sigma[axis_0, axis_1]
+        quad[1, 0] = quad[0,1]
+
+        # Plot ellipses
+        lambda_, v = np.linalg.eig(quad)
+        lambda_ = 2*np.sqrt(chi2.ppf(0.95, d - 2)*lambda_)
+        ell = Ellipse(
+                 xy=center,
+                  width=lambda_[0], height=lambda_[1],
+                  angle=np.rad2deg(np.arccos(v[0, 0])),
+                  alpha=transparancy,
+                  hatch="///////////",
+                  fill=False,
+                  linewidth=0.05,
+                  color=list_colors[2],
+                  zorder=-2)
+        ax.add_artist(ell)
 
 """
     Plots the projections of the uncertainty ellipsoïds of a transfer.
@@ -166,7 +197,7 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
 
 def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
                 plot_CL, max_sample_size,
-                maker, transparancy, color, marker_size,
+                maker, transparancy, color, marker_size, linewidth,
                 denormalise, interpolation, interpolation_rate):
 
     # Retreive data
@@ -237,6 +268,7 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, index,
                 s=marker_size,
                 marker=maker,
                 color=color,
+                linewidth=linewidth,
                 zorder=10)
     return x_min, x_max, y_min, y_max
 
@@ -277,7 +309,8 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         list_plots_system_points = [True]
     
     # Departure arrival
-    list_colors_departure_arrival = ["black", "black"]
+    alpha_departure_arrival = 0.4
+    list_colors_departure_arrival = ["black", "black","#4caf50"]
     list_markers_departure_arrival = ["^", "v"]
     
     # Reference orbits
@@ -286,11 +319,12 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     list_linestyles_references = ["dotted", "dashed"]
 
     # Sample
-    color_sample = "#9a7bb5"
+    color_sample = "#e57373"
     maker_sample = "+"
     max_sample_size = 400
-    sample_alpha = 0.2
+    sample_alpha = 0.3
     marker_size = 30
+    marker_linewidth = 1
     
     # Normalisation
     denormalise = False
@@ -353,6 +387,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
                 dataset, dataset_sample, axis_0, axis_1, ax_i, index, 
                 plot_CL, max_sample_size,
                 maker_sample, sample_alpha, color_sample, marker_size,
+                marker_linewidth,
                 denormalise, interpolation, interpolation_rate)
             
             # Plot state dispersion TO DO
@@ -366,6 +401,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
                                    index,
                                    list_colors_departure_arrival,
                                    list_markers_departure_arrival, lims,
+                                   alpha_departure_arrival,
                                    denormalise)
 
             # lims

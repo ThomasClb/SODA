@@ -497,6 +497,12 @@ def plot_2d(dataset, dataset_sample=Dataset()):
             list_names_state[axis_1 + 1] = list_names_state[axis_1 + 1].replace(
                 "LU", "km")
 
+        if interpolation:
+            t_old = np.linspace(0, 1, len(coord_0))  
+            t_new = np.linspace(0, 1, interpolation_rate*len(coord_0))  
+            coord_0 = interpolate.interp1d(t_old, coord_0, kind='cubic')(t_new)
+            coord_1 = interpolate.interp1d(t_old, coord_1, kind='cubic')(t_new)
+
         # Create plot
         fig = plt.figure(dpi=dpi)
         ax = fig.add_subplot()

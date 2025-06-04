@@ -50,7 +50,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 		vectordb homotopy_sequence{0, 0.5, 0.9, 0.995};
 		vectordb huber_loss_coefficient_sequence{1e-2, 5e-3, 2e-3, 1e-3}; 
 		AUL_transcription_parameter = 3;
-		AUL_max_iter = 50;
+		AUL_max_iter = 40;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.5 && robust_solving)
 		) {

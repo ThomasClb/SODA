@@ -254,6 +254,29 @@ void print_robust_trajectory_dataset(
 		spacecraft_parameters, constants, solver_parameters,
 		2*N);
 
+	// Get arrival inv covariance
+	matrixdb terminal_cost_inv_covariance = solver_parameters.terminal_cost_inv_covariance();
+
+	// Get covaraince
+	// Compute eigenvalues
+    pair<vectordb, matrixdb> eig(jacobi_eigenvalue_(terminal_cost_inv_covariance));
+    vectordb eigenvalues(eig.first);
+    matrixdb eigenvectors(eig.second);
+    for (size_t k=0; k<eigenvalues.size(); k++) {
+        double buff = eigenvalues[k];
+        if (buff > 0)
+            eigenvalues[k] = 1/buff;
+    }
+    matrixdb Sigma(eigenvectors*make_diag_matrix_(eigenvalues)*eigenvectors.transpose());
+	matrixdb mat_arrival_Sigma(
+		1,
+		Sigma.nrows()*Sigma.ncols());
+	for (size_t i=0; i<Sigma.nrows(); i++) {
+		for (size_t j=0; j<Sigma.ncols(); j++) {
+			mat_arrival_Sigma.at(0, i*Sigma.ncols() + j) = Sigma.at(i,j);
+		}
+	}
+
 	// Make lists
 	vector<string> title_history{"Splitting history", "Splitting direction", "Splitting side"};
 	vector<string> title_state{
@@ -286,12 +309,13 @@ void print_robust_trajectory_dataset(
 			title_feedback_gain.push_back(A + " * " + B);
 		}
 	}
-	vector<string> title_departure(title_state), title_arrival(title_state);
+	vector<string> title_departure(title_state), title_arrival(title_state), title_arrival_Sigma(title_Sigma);
 	title_departure[0] = "Departure orbit";
 	title_arrival[0] = "Arrival orbit";
-	vector<vector<string>> list_title{title_departure, title_arrival};
+	title_arrival_Sigma[0] = "Arrival Sigma";
+	vector<vector<string>> list_title{title_departure, title_arrival, title_arrival_Sigma};
 	list_title.reserve(robust_trajectory.size()*6);
-	vector<matrixdb> list_data{mat_departure, mat_arrival};
+	vector<matrixdb> list_data{mat_departure, mat_arrival, mat_arrival_Sigma};
 	list_data.reserve(robust_trajectory.size()*6);
 
 	// Loop on all splits
@@ -421,6 +445,8 @@ RobustTrajectory load_robust_trajectory(
 	matrixdb buff_mat;
 	buff_mat = read_dataset(ifs);
 	buff_mat = read_dataset(ifs);
+	buff_mat = read_dataset(ifs);
+
 
 	// Read trajecotry split
 	matrixdb buff_der_dynamics;
