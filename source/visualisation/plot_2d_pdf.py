@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as clr
 from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import ScalarFormatter
 import scipy.interpolate as interpolate
 from matplotlib.patches import Ellipse
 from scipy.stats import chi2, multivariate_normal
@@ -105,7 +106,7 @@ def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
 
 """
 def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
-                            plot_CL, nb_points,
+                            plot_CL, nb_points, coefficient_lims,
                             transparancy, levels, lims,
                             cmap, denormalise):
 
@@ -173,7 +174,7 @@ def plot_state_distribution(dataset, axis_0, axis_1, ax, index_,
 
     x_m, y_m = 0.5*(lims[0] + lims[1]), 0.5*(lims[2] + lims[3])
     dx, dy = (lims[1] - lims[0])/2, (lims[3] - lims[2])/2
-    coef = 1.3
+    coef = coefficient_lims
     X_norm, Y_norm = np.meshgrid(np.linspace(x_m - coef*dx, x_m + coef*dx, nb_points), np.linspace(y_m - coef*dy, y_m + coef*dy, nb_points))
     pos_norm = np.dstack((X_norm, Y_norm))
     X = pos_norm[0,:,0]
@@ -288,6 +289,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     if "halo" in dataset.file_name:
         list_axis = [[0, 1], [0, 2], [3, 4], [3, 5]]
     sampling = 4
+    coefficient_lims = 1.3
     
     # Ellipses
     cmap = "plasma" 
@@ -377,17 +379,20 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         list_index = [int(i/(sampling - 1)*N) for i in range(sampling)]
         shape = (2, 2)
         fig, ax = plt.subplots(shape[0], shape[1], dpi=dpi)
-        fig.subplots_adjust(wspace=0.33, hspace=0.33)
+        fig.subplots_adjust(wspace=0.33, hspace=0.25)
 
         for i, index in enumerate(list_index):
             ax_i = ax.flat[i]
             ax_i.xaxis.set_major_locator(plt.MaxNLocator(3))
             ax_i.yaxis.set_major_locator(plt.MaxNLocator(3))
+            ax_i.tick_params(axis='both', which='major', labelsize=7)  # or 10, 12, etc.
 
             # Set labels
-            ax_i.ticklabel_format(useMathText=True, useOffset=True)
-            ax_i.xaxis.get_major_formatter().set_powerlimits((-1, 2))
-            ax_i.yaxis.get_major_formatter().set_powerlimits((-1, 2))
+            formatter = ScalarFormatter(useMathText=True, useOffset=True)
+            formatter.set_powerlimits((-1, 2))  # Controls when scientific notation appears
+            ax_i.xaxis.set_major_formatter(formatter)
+            ax_i.yaxis.set_major_formatter(formatter)
+
             
             lims = plot_sample(
                 dataset, dataset_sample, axis_0, axis_1, ax_i, index, 
@@ -396,15 +401,18 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
                 marker_linewidth,
                 denormalise, interpolation, interpolation_rate)
             
-            # Plot state dispersion TO DO
+            # Plot state dispersion
+            coef = coefficient_lims
+            if index == N:
+                coef = coefficient_lims*1.5
             CS = plot_state_distribution(dataset, axis_0, axis_1, ax_i, index,
-                plot_CL, ellipse_nb_points,
+                plot_CL, ellipse_nb_points, coef,
                 ellipse_alpha, ellipse_levels, lims,
                 cmap, denormalise)
 
             # Plot departure and arrival points
             plot_departure_arrival(dataset, axis_0, axis_1, ax_i,
-                                   index,
+                                   index, 
                                    list_colors_departure_arrival,
                                    list_markers_departure_arrival, lims,
                                    alpha_departure_arrival,
@@ -414,11 +422,10 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
             x_min, x_max, y_min, y_max = lims
             x_m, y_m = 0.5*(x_min + x_max), 0.5*(y_min + y_max)
             dx, dy = (x_max - x_min)/2, (y_max - y_min)/2
-            coef = 1.3
             ax_i.set_xlim(x_m - coef*dx, x_m + coef*dx)
             ax_i.set_ylim(y_m - coef*dy, y_m + coef*dy)
             step_str = r"$t/ToF=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
-            ToF_text = ax_i.text(x_m - dx, y_m + dy,
+            ToF_text = ax_i.text(x_m - 0.8*coef*dx, y_m + 0.8*coef*dy,
                     step_str,
                     zorder=100)
             ToF_text.set_bbox(dict(

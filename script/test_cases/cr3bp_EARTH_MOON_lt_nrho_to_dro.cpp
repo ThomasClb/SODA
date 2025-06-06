@@ -28,8 +28,8 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	unsigned int Nineq = 2;
 	unsigned int Ntineq = 1;
 	bool with_J2 = false;
-	double cost_to_go_gain = 1e-3;
-	double terminal_cost_gain = 1e6;
+	double cost_to_go_gain = 1e-2;
+	double terminal_cost_gain = 1e5;
 	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
 			1/position_error_sqr, 1/position_error_sqr, 1/position_error_sqr,
@@ -44,15 +44,16 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	vectordb homotopy_sequence,huber_loss_coefficient_sequence;
 	if (!robust_solving){
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 5e-4};
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) { 
 		homotopy_sequence = vectordb{0, 0.75, 0.975, 0.99}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 5e-3, 5e-3};
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
+		homotopy_sequence = vectordb{0, 0.75, 0.9, 0.975, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 1e-2, 5e-3, 5e-3};
+		mu_parameters[2] = 3;
 	}
 
 	double DDP_tol = 1e-4;
