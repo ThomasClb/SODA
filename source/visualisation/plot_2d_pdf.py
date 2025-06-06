@@ -16,6 +16,7 @@ from matplotlib.ticker import FormatStrFormatter
 import scipy.interpolate as interpolate
 from matplotlib.patches import Ellipse
 from scipy.stats import chi2, multivariate_normal
+plt.rcParams['hatch.linewidth'] = 0.5  # Default is ~1.0
 
 from misc import get_Lagrange_point
 from classes import Dataset
@@ -92,9 +93,9 @@ def plot_departure_arrival(dataset, axis_0, axis_1, ax, index,
                   width=lambda_[0], height=lambda_[1],
                   angle=np.rad2deg(np.arccos(v[0, 0])),
                   alpha=transparancy,
-                  hatch="///////////",
+                  hatch="///////////////",
                   fill=False,
-                  linewidth=0.05,
+                  linewidth=0.8,
                   color=list_colors[2],
                   zorder=-2)
         ax.add_artist(ell)
@@ -309,7 +310,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         list_plots_system_points = [True]
     
     # Departure arrival
-    alpha_departure_arrival = 0.4
+    alpha_departure_arrival = 0.45
     list_colors_departure_arrival = ["black", "black","#4caf50"]
     list_markers_departure_arrival = ["^", "v"]
     
@@ -322,7 +323,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     color_sample = "#e57373"
     maker_sample = "+"
     max_sample_size = 400
-    sample_alpha = 0.3
+    sample_alpha = 0.2
     marker_size = 30
     marker_linewidth = 1
     
@@ -376,12 +377,17 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
         list_index = [int(i/(sampling - 1)*N) for i in range(sampling)]
         shape = (2, 2)
         fig, ax = plt.subplots(shape[0], shape[1], dpi=dpi)
-        fig.subplots_adjust(wspace=0.25, hspace=0.25)
+        fig.subplots_adjust(wspace=0.33, hspace=0.33)
+
         for i, index in enumerate(list_index):
             ax_i = ax.flat[i]
+            ax_i.xaxis.set_major_locator(plt.MaxNLocator(3))
+            ax_i.yaxis.set_major_locator(plt.MaxNLocator(3))
 
             # Set labels
-            ax_i.ticklabel_format(useMathText=True)
+            ax_i.ticklabel_format(useMathText=True, useOffset=True)
+            ax_i.xaxis.get_major_formatter().set_powerlimits((-1, 2))
+            ax_i.yaxis.get_major_formatter().set_powerlimits((-1, 2))
             
             lims = plot_sample(
                 dataset, dataset_sample, axis_0, axis_1, ax_i, index, 
@@ -412,21 +418,27 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
             ax_i.set_xlim(x_m - coef*dx, x_m + coef*dx)
             ax_i.set_ylim(y_m - coef*dy, y_m + coef*dy)
             step_str = r"$t/ToF=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
-            ax_i.text(x_m - dx, y_m + dy,
+            ToF_text = ax_i.text(x_m - dx, y_m + dy,
                     step_str,
                     zorder=100)
+            ToF_text.set_bbox(dict(
+                facecolor=(1, 1, 1, 0.3),   # white with X% opacity
+                edgecolor=(0, 0, 0, 1.0),   # black with full opacity
+                linewidth=1.0,
+                boxstyle='round,pad=0.3'  # Optional: rounded corners and padding
+            ))
 
             if show_grid:
                 ax_i.grid(alpha=0.5, color="#d3d3d3")
 
-        # Color bar
+        # Color bar
         
         cbar = fig.colorbar(CS, ax=ax, location="right")
         cbar.set_label("PDF [-]")
 
 
-        fig.text(0.5, 0.04, list_names_state[axis_0 + 1], ha='center', va='center')
-        fig.text(0.06, 0.5, list_names_state[axis_1 + 1], ha='center', va='center', rotation='vertical')
+        fig.text(0.5 - 0.065, 0.04, list_names_state[axis_0 + 1], ha='center', va='center')
+        fig.text(0.06, 0.5 , list_names_state[axis_1 + 1], ha='center', va='center', rotation='vertical')
         
 
         if show_legend:   
@@ -444,7 +456,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
                 ".dat", signature)
             
             # Save
-            plt.savefig(file_name, bbox_inches='tight')    
+            plt.savefig(file_name, bbox_inches='tight', format='pdf')    
            
         if show_plot:   
             plt.show()

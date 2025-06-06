@@ -372,7 +372,7 @@ void PNSolver::solve(
 			<< 100*d_th_order_failure_risk_ << ", "
 			<< duration_pn << ", "
 			<< n_iter << ", "
-			<< X_U_[X_U_.size() - 2] * constants.massu() << ", "
+			<< X_U_[X_U_.size() - 2]  * constants.massu() << ", "
 			<< violation_ << ", "
 			<< 100*d_th_order_failure_risk_k << endl;
 		}

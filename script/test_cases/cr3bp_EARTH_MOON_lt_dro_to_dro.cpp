@@ -20,6 +20,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
 	double const& transcription_beta, double const& LOADS_max_depth,
+	bool const& robust_solving,
 	unsigned int verbosity) {
 	// Solver parameters
 	unsigned int Nx = (SIZE_VECTOR + 1) + 1;
@@ -36,20 +37,37 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	double mass_leak = 5e-6;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
-	vectordb huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 1e-3, 1e-3};
+	vectordb mu_parameters{1, 1e8, 10};
+	double AUL_transcription_parameter = 1.0;
+	vectordb homotopy_sequence, huber_loss_coefficient_sequence;
+	if (!robust_solving){
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 2e-3, 1e-3, 5e-4};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) { 
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 2e-3, 1e-3, 5e-4};
+		AUL_transcription_parameter = 2.0;
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 2e-3, 1e-3, 1e-3}; 
+		mu_parameters[2] = 2.7; 
+		AUL_transcription_parameter = 1.0;
+	}
+
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-6;
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-3;
-	double AUL_transcription_parameter = 1.0;
+	
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
 	unsigned int AUL_max_iter = 100;
 	unsigned int PN_max_iter = 3000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 10};
+	
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
 	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.5};
@@ -153,7 +171,7 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
-		transcription_beta, LOADS_max_depth, verbosity);
+		transcription_beta, LOADS_max_depth, robust_solving, verbosity);
 
 	// Solver parameters
 	unsigned int Nx = solver_parameters.Nx();

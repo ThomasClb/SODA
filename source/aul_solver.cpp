@@ -378,11 +378,12 @@ void AULSolver::solve(
 			}
 
 			// Solution perturbation
+			double magnitude_perturbation = AUL_tol;
 			vector<controldb> list_u(trajectory_split_.list_u());
 			for (size_t i=0; i<N; i++) {
 		        // Fix u_i
 		        vectordb u_i = trajectory_split_.list_u()[i].nominal_control();
-		        list_u[i].set_nominal_control(u_i*(1.0 - AUL_tol));
+		        list_u[i].set_nominal_control(u_i*(1.0 - magnitude_perturbation));
 		    }
 		    trajectory_split_.set_list_u(list_u);
 

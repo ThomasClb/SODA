@@ -19,6 +19,7 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
 	double const& transcription_beta, double const& LOADS_max_depth,
+	bool const& robust_solving,
 	unsigned int verbosity) {
 	// Solver parameters
 	unsigned int Nx = (SIZE_VECTOR + 1) + 1;
@@ -35,31 +36,64 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	double mass_leak = 1e-5;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
+	vectordb mu_parameters{1, 1e8, 3};
 
-	// Study alpha_min
+	
 
-	// Default
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995}; 
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 5e-3, 1e-3};
+	vectordb homotopy_sequence,huber_loss_coefficient_sequence;
 
-	if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.2) || 
-		(transcription_beta == 0.005 && LOADS_max_depth == 0.05)) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
-	} else if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.1)) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-3};
-	} else if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.01)) {
+
+	// BETA
+
+	// DET
+	if (!robust_solving){
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-4};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
 	} else if (
 		(transcription_beta == 0.5 && LOADS_max_depth == 0.05) ) {
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-4};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+	} else if (
+		(transcription_beta == 0.005 && LOADS_max_depth == 0.05)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-3};
 	}
+
+	// Study alpha_min
+	else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.5)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+		mu_parameters[2] = 10;
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.2)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+		mu_parameters[2] = 10;
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.1)) { 
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+		mu_parameters[2] = 5;
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+		mu_parameters[2] = 2;
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.02)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.01)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 2e-4};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.005)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 2e-3, 5e-4};
+	}
+
 
 	double DDP_tol = 1e-4;
 	double AUL_tol = 5e-6;
@@ -72,7 +106,6 @@ SolverParameters get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 	unsigned int AUL_max_iter = 50;
 	unsigned int PN_max_iter = 1000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 3};
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
 	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e20, 1.6};
@@ -177,11 +210,11 @@ void tbp_SUN_lt_earth_to_mars(int argc, char** argv) {
 
 	// Init solver parameters
 	double terminal_position_error_sqr = 1e11/lu/lu; double terminal_velocity_error_sqr = 1e-2/vu/vu; // [Benedikter et al. 2022]
-	terminal_position_error_sqr = sqr(position_error); terminal_velocity_error_sqr = sqr(velocity_error);
+	terminal_position_error_sqr = sqr(position_error/10); terminal_velocity_error_sqr = sqr(velocity_error/10);
 	SolverParameters solver_parameters = get_SolverParameters_tbp_SUN_lt_earth_to_mars(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
-		transcription_beta, LOADS_max_depth, verbosity);
+		transcription_beta, LOADS_max_depth, robust_solving, verbosity);
 
 	// Solver parameters
 	unsigned int Nx = solver_parameters.Nx();

@@ -94,16 +94,17 @@ void SODA::solve(
 	bool loop = true;
 	size_t counter = 0;
 	while (loop) {
-		// Prepare list_trajectory_split_
+		// Set coefs
 		if (fuel_optimal) {
 			AULsolver_.set_homotopy_coefficient(homotopy_sequence[counter]);
 			AULsolver_.set_huber_loss_coefficient(huber_loss_coefficient_sequence[counter]);
 		}
+
+		// Prepare list_trajectory_split_
 		if (counter == 0) {
 			TrajectorySplit trajectory_split_init(vector<statedb>(1, x0_det), list_u_init, SplittingHistory());
 			list_trajectory_split_ = deque<TrajectorySplit>{trajectory_split_init};
-		}
-		else if (counter == 1 && robust_solving) { // Fully robust case
+		} else if (counter == 1 && robust_solving) { // Fully robust case
 			AULsolver_.set_navigation_error_covariance(navigation_error_covariance);
 			TrajectorySplit trajectory_split_init(
 				vector<statedb>(1, x0),
@@ -113,6 +114,7 @@ void SODA::solve(
 		} // Else list_trajectory_split_ is already configured
 
 		// Solve
+		
 		AULsolver_.solve(&list_trajectory_split_, x_goal);
 		counter ++;
 		DDP_n_iter_ += AULsolver_.DDP_n_iter();

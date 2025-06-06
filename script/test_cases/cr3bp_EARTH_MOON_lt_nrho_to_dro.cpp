@@ -19,8 +19,8 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	unsigned int const& N, unsigned int const& DDP_type,
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
-	bool const& robust_solving,
 	double const& transcription_beta, double const& LOADS_max_depth,
+	bool const& robust_solving,
 	unsigned int verbosity) {
 	// Solver parameters
 	unsigned int Nx = (SIZE_VECTOR + 1) + 1;
@@ -37,21 +37,21 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	double mass_leak = 1e-5;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995};
-	vectordb huber_loss_coefficient_sequence{1e-2, 5e-3, 2e-3, 1e-3}; 
 	vectordb mu_parameters{1, 1e8, 10};
 	double AUL_transcription_parameter = 1;
-	if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.05 && robust_solving) 
-		) {
+
+
+	vectordb homotopy_sequence,huber_loss_coefficient_sequence;
+	if (!robust_solving){
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) { 
 		homotopy_sequence = vectordb{0, 0.75, 0.975, 0.99}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 5e-3, 5e-3};
-		AUL_transcription_parameter = 1.5;
-		mu_parameters[2] = 10; // 2
 	} else if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.5 && robust_solving) 
-		) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995};
 		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
 	}
 
@@ -172,8 +172,7 @@ void cr3bp_EARTH_MOON_lt_nrho_to_dro(int argc, char** argv) {
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
-		robust_solving,
-		transcription_beta, LOADS_max_depth, verbosity);
+		transcription_beta, LOADS_max_depth, robust_solving, verbosity);
 
 	// Solver parameters
 	unsigned int Nx = solver_parameters.Nx();

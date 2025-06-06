@@ -19,8 +19,8 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunov
 	unsigned int const& N, unsigned int const& DDP_type,
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
-	bool const& robust_solving,
 	double const& transcription_beta, double const& LOADS_max_depth,
+	bool const& robust_solving,
 	unsigned int verbosity) {
 	// Solver parameters
 	unsigned int Nx = (SIZE_VECTOR + 1) + 1;
@@ -37,27 +37,30 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunov
 	double mass_leak = 1e-5;
 	double homotopy_coefficient = 0.0;
 	double huber_loss_coefficient = 5e-3;
-	vectordb homotopy_sequence{0, 0.5, 0.9, 0.995};
-	vectordb huber_loss_coefficient_sequence{1e-2, 1e-2, 5e-3, 5e-3}; // OK
 	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
 	double AUL_transcription_parameter = 2.5;
-	if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.5 && robust_solving)
-		) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 1e-3, 5e-3}; // OK
-		AUL_transcription_parameter = 2.5;
+	double AUL_tol = 1e-6;
+	vectordb mu_parameters{1, 1e8, 10};
+
+	vectordb homotopy_sequence,huber_loss_coefficient_sequence;
+	if (!robust_solving){ // OK
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-3};
 	} else if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.05 && robust_solving)
-		) {
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) { 
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-3};  // OK
-		AUL_transcription_parameter = 8.5;
-		PN_transcription_parameters[3] = 0.2;
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 1e-3, 5e-3};
+	} else if (
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 1e-2, 5e-3};
+		AUL_transcription_parameter = 15;
+		AUL_tol = 1e-6;
+		mu_parameters[2] = 3;
 	}
 
 	double DDP_tol = 1e-4;
-	double AUL_tol = 1e-6;
+	
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-2;
 	double PN_active_constraint_tol = 1e-13;
@@ -66,7 +69,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunov
 	unsigned int AUL_max_iter = 100;
 	unsigned int PN_max_iter = 5000;
 	vectordb lambda_parameters{0.0, 1e8};
-	vectordb mu_parameters{1, 1e8, 10};
+	
 	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
 	bool backward_sweep_regulation = true;
 	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.6};
@@ -170,8 +173,7 @@ void cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunovL2(int argc, char** argv) {
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunovL2(
 		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)),
-		robust_solving,
-		transcription_beta, LOADS_max_depth, verbosity);
+		transcription_beta, LOADS_max_depth, robust_solving, verbosity);
 
 	// Solver parameters
 	unsigned int Nx = solver_parameters.Nx();
