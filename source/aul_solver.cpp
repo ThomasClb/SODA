@@ -193,7 +193,7 @@ double AULSolver::evaluate_risk() {
 	
 	// Get diag and mean
 	vectordb mean, norm_vector;
-	mean.reserve(N*(Nineq) + Ntineq);
+	mean.reserve(N*Nineq + Ntineq);
 	norm_vector.reserve(N*Nineq + Ntineq);
 	matrixdb Delta_i, prod_i;
 	vector<matrixdb> der_constraints;

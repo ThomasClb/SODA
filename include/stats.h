@@ -85,20 +85,19 @@ template<typename T> T chi_2_cdf(
 
 	// Case disjunction
 	T r_div_2 = r/2.0;
-	T r_div_2_i = r_div_2;
-	T exp_r = exp(-r_div_2_i);
+	T exp_r = exp(-r_div_2);
 	if (d%2 == 1) {
 		unsigned int p = (d-1)/2;
 		
 		// Init inc_gamma(1/2, r/2)
-		inc_gamma = sqrt(PI)*erf(sqrt(r_div_2_i));
-		T r_div_2_i_pow = sqrt(r_div_2_i)*exp_r;
+		inc_gamma = sqrt(PI)*erf(sqrt(r_div_2));
+		T r_div_2_i_pow = sqrt(r_div_2)*exp_r;
 
 		// Exact iterative expression
 		for (unsigned int i=0; i<p; i++) {
 			inc_gamma = (i + 0.5)*inc_gamma - r_div_2_i_pow;
 			if (i + 1 != p)
-				r_div_2_i_pow *= r_div_2_i;
+				r_div_2_i_pow *= r_div_2;
 		}
 	}
 	else if (d%2==0) { // d is pair
@@ -106,7 +105,7 @@ template<typename T> T chi_2_cdf(
 
 		// Init inc_gamma(1, r/2)
 		inc_gamma = 1.0 - exp_r;
-		r_div_2_i *= exp_r;
+		T r_div_2_i = r_div_2*exp_r;
 
 		// Exact iterative expression
 		for (unsigned int i=1; i<p; i++) {

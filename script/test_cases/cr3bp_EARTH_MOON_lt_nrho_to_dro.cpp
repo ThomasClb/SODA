@@ -29,7 +29,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	unsigned int Ntineq = 1;
 	bool with_J2 = false;
 	double cost_to_go_gain = 1e-2;
-	double terminal_cost_gain = 1e5;
+	double terminal_cost_gain = 1e6;
 	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
 		vectordb{
 			1/position_error_sqr, 1/position_error_sqr, 1/position_error_sqr,
@@ -39,25 +39,24 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	double huber_loss_coefficient = 5e-3;
 	vectordb mu_parameters{1, 1e8, 10};
 	double AUL_transcription_parameter = 1;
-
-
+	double AUL_tol = 1e-6;
+	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
 	vectordb homotopy_sequence,huber_loss_coefficient_sequence;
 	if (!robust_solving){
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 5e-4};
+		homotopy_sequence = vectordb{0, 0.75, 0.9, 0.99}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 2e-3, 1e-3};
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) { 
-		homotopy_sequence = vectordb{0, 0.75, 0.975, 0.99}; 
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 5e-3, 5e-3};
+		homotopy_sequence = vectordb{0, 0.8, 0.95, 0.99}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
-		homotopy_sequence = vectordb{0, 0.75, 0.9, 0.975, 0.99};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 1e-2, 5e-3, 5e-3};
-		mu_parameters[2] = 3;
+		homotopy_sequence = vectordb{0, 0.8, 0.95, 0.99}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
+		AUL_transcription_parameter = 3.85;
 	}
 
 	double DDP_tol = 1e-4;
-	double AUL_tol = 1e-6;
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-3;
 	double PN_active_constraint_tol = 1e-13;
@@ -72,7 +71,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
-	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
+	
 	unsigned int saving_iterations = 0;
 
 	return SolverParameters(
@@ -161,7 +160,7 @@ void cr3bp_EARTH_MOON_lt_nrho_to_dro(int argc, char** argv) {
 	SpacecraftParameters spacecraft_parameters(spacecraft_parameters_file);
 
 	// Uncertainties
-	double position_error = 5e-6; double velocity_error = 5e-5;
+	double position_error = 1e-6; double velocity_error = 2e-5;
 	vectordb init_convariance_diag{
 		position_error, position_error, position_error,
 		velocity_error, velocity_error, velocity_error,

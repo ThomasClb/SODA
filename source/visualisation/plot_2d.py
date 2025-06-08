@@ -227,8 +227,8 @@ def plot_reference_orbits(dataset, axis_0, axis_1, ax,
             color=list_colors[1], linestyle=list_linestyles[1])
 
 
-def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample_size,
-                transparancy, color, linewidth,
+def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, max_sample_size,
+                transparancy, color, linewidth, scale,
                 denormalise, interpolation, interpolation_rate):
 
     # Retreive data
@@ -251,6 +251,10 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample
                 list_coord_0.append(data_state[axis_0,:])
                 list_coord_1.append(data_state[axis_1,:])
                 list_center.append(np.array([data_state[axis_0,0], data_state[axis_1,0]]))
+
+                if k==0:
+                    date_state_0 = data_state
+
             elif (dataset.list_dataset_names[i][0] == "Sigma GMM " + str(k)):
                 data_Sigma = dataset.list_datasets[i].copy()
                 d = int(np.sqrt(len(data_Sigma[:,0])))
@@ -296,9 +300,8 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample
     # Normalisation
     if denormalise:
         LU = dataset.spacecraft_parameters.constants.LU
-        for k in range(nb_GMM):
-            list_data_state[k][axis_0,:] *= LU
-            list_data_state[k][axis_1,:] *= LU
+        date_state_0[axis_0,:] *= LU
+        date_state_0[axis_1,:] *= LU
 
         # Sample
         if sample_size != 0:
@@ -316,29 +319,20 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample
         t_old = np.linspace(0, 1, len(coord_0))  
         t_new = np.linspace(0, 1, interpolation_rate*len(coord_0))  
 
+        coord_0_nominal = date_state_0[axis_0,:]
+        coord_1_nominal = date_state_0[axis_1,:]
+
         # Offset
         if sample_size != 0:
             for i in range(sample_size):
-                # Unpack
+                # Unpack                
                 coord_0_i = coord_0_sample[i]
                 coord_1_i = coord_1_sample[i]
                 coord_i = np.array([coord_0_i[0], coord_1_i[0]])
 
-                # Find split
-                list_maha = []
-                for k in range(nb_GMM):
-                    list_maha.append((coord_i - list_center[k]).T@list_inv_cov[k]@(coord_i - list_center[k]))
-                index = np.argmin(list_maha)
-                coord_0_split = list_coord_0[index]
-                coord_1_split = list_coord_1[index]
-
-                # Scale in split
-                coord_0_i = coord_0_split + (coord_0_i - coord_0_split)
-                coord_1_i = coord_1_split + (coord_1_i - coord_1_split)
-
                 # Scale
-                coord_0_sample[i] = coord_0 + (coord_0_i - coord_0)
-                coord_1_sample[i] = coord_1 + (coord_1_i - coord_1)
+                coord_0_sample[i] = coord_0_nominal + scale*(coord_0_i - coord_0_nominal)
+                coord_1_sample[i] = coord_1_nominal + scale*(coord_1_i - coord_1_nominal)
         
         # Interpolate
         if sample_size != 0:
@@ -352,7 +346,7 @@ def plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample
     if sample_size != 0:
         for i in range(sample_size):
             ax.plot(coord_0_sample[i], coord_1_sample[i],
-                alpha=alpha,
+                alpha=transparancy,
                 linewidth=linewidth,
                 color=color,
                 zorder=10)
@@ -405,13 +399,6 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     list_axis = [[0, 1]]
     if "halo" in dataset.file_name or "nrho" in dataset.file_name:
         list_axis = [[0, 1], [0, 2]]
-    
-    # Ellipses
-    ellipse_alpha = 0.5
-    ellipse_sampling = 7
-    ellipse_nb_points = 1001
-    ellipse_levels = np.array([1e-240, 1e-180, 1e-120, 1e-60, 1])
-    plot_CL = True
 
     # System points
     if dataset.dynamical_system.startswith("CR3BP"):
@@ -436,8 +423,18 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     # Sample
     color_sample = "#9a7bb5"
     max_sample_size = 200
-    sample_alpha = 0.3
+    sample_alpha = 0.25
     sample_linewidth = 0.5
+    if "mars" in dataset.file_name:
+        sample_scale = 500
+    elif "halo" in dataset.file_name:
+        sample_scale = 15
+    elif "nrho" in dataset.file_name:
+        sample_scale = 300
+    elif "dro_to_dro" in dataset.file_name:
+        sample_scale = 300
+    elif "lyapunov" in dataset.file_name:
+        sample_scale = 300
 
     # Trajectory
     color_trajectory = "black"
@@ -512,8 +509,8 @@ def plot_2d(dataset, dataset_sample=Dataset()):
         ax.set_xlabel(list_names_state[axis_0 + 1])
         ax.set_ylabel(list_names_state[axis_1 + 1])
 
-        plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, plot_CL, max_sample_size,
-                    sample_alpha, color_sample, sample_linewidth,
+        plot_sample(dataset, dataset_sample, axis_0, axis_1, ax, max_sample_size,
+                    sample_alpha, color_sample, sample_linewidth, sample_scale,
                     denormalise, interpolation, interpolation_rate)
         
         # Plot reference orbits

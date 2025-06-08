@@ -286,7 +286,7 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
     
     # Axes
     list_axis = [[0, 1],[3, 4]]
-    if "halo" in dataset.file_name:
+    if "halo" in dataset.file_name or "nrho" in dataset.file_name:
         list_axis = [[0, 1], [0, 2], [3, 4], [3, 5]]
     sampling = 4
     coefficient_lims = 1.3
@@ -424,7 +424,10 @@ def plot_2d_pdf(dataset, dataset_sample=Dataset()):
             dx, dy = (x_max - x_min)/2, (y_max - y_min)/2
             ax_i.set_xlim(x_m - coef*dx, x_m + coef*dx)
             ax_i.set_ylim(y_m - coef*dy, y_m + coef*dy)
-            step_str = r"$t/ToF=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
+            if (index == 0 or index == N):
+                step_str = r"$t/ToF=" + str(int((1.0*index)/N)) + "$"
+            else:
+                step_str = r"$t/ToF=" + str(float("{:.2f}".format((1.0*index)/N))) + "$"
             ToF_text = ax_i.text(x_m - 0.8*coef*dx, y_m + 0.8*coef*dy,
                     step_str,
                     zorder=100)

@@ -28,10 +28,7 @@ PNSolver::PNSolver() : AULsolver_(),
 PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
 	cost_(AULsolver.cost()), violation_(AULsolver.violation()),
 	d_th_order_failure_risk_(AULsolver_.d_th_order_failure_risk()),
-	list_der_cost_(vector<vector<matrixdb>>(AULsolver.list_ineq().size() + 1)),
-	list_dynamics_eval_(), list_constraints_eval_(),
-	list_feedback_gain_(), list_Sigma_(),
-	X_U_(), INEQ_(), der_INEQ_(), correction_() {
+	list_der_cost_(vector<vector<matrixdb>>(AULsolver.list_ineq().size() + 1))  {
 	// Unpack
 	DDPSolver ddp_solver = AULsolver.DDPsolver();
 	solver_parameters_ = ddp_solver.solver_parameters();
@@ -47,6 +44,9 @@ PNSolver::PNSolver(AULSolver const& AULsolver) : AULsolver_(AULsolver),
 	correction_ = vectordb(N*(Nx + Nu), 0);
 	INEQ_ = vectordb(N*(Nx + Nineq + 1) + Ntineq + 1);
 	der_INEQ_ = vector<matrixdb>(N*6 + 2);
+	list_feedback_gain_ = vector<matrixdb>(N);
+	list_Sigma_ = vector<matrixdb>(N+1);
+	list_dynamics_eval_ = vector<vectorDA>(N);
 }
 
 // Copy constructor
@@ -88,9 +88,9 @@ void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 	list_dynamics_eval_ = trajectory_split.list_dynamics_eval();
 
 	// First control
-	list_Sigma_.push_back(trajectory_split.list_x()[0].Sigma());
+	list_Sigma_[0] = trajectory_split.list_x()[0].Sigma();
 	vectordb u_i = trajectory_split.list_u()[0].nominal_control();
-	list_feedback_gain_.push_back(trajectory_split.list_u()[0].feedback_gain());
+	list_feedback_gain_[0] = trajectory_split.list_u()[0].feedback_gain();
 	for (size_t j=0; j<Nu; j++)  {
 		X_U_[j] = u_i[j];
 	}
@@ -99,8 +99,8 @@ void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 	for (size_t i=1; i<N; i++) {
 		vectordb x_i = trajectory_split.list_x()[i].nominal_state();
 		u_i = trajectory_split.list_u()[i].nominal_control();
-		list_Sigma_.push_back(trajectory_split.list_x()[i].Sigma());
-		list_feedback_gain_.push_back(trajectory_split.list_u()[i].feedback_gain());
+		list_Sigma_[i] = trajectory_split.list_x()[i].Sigma();
+		list_feedback_gain_[i] = trajectory_split.list_u()[i].feedback_gain();
 		for (size_t j=0; j<Nx; j++)  {
 			X_U_[(i - 1)*(Nx + Nu) + Nu + j] = x_i[j];
 		}
@@ -111,7 +111,7 @@ void PNSolver::set_list_x_u(TrajectorySplit const& trajectory_split) {
 
 	// Last state
 	vectordb x_N = trajectory_split.list_x()[N].nominal_state();
-	list_Sigma_.push_back(trajectory_split.list_x()[N].Sigma());
+	list_Sigma_[N] = trajectory_split.list_x()[N].Sigma();
 	for (size_t j=0; j<Nx; j++)  {
 		X_U_[(N - 1)*(Nx + Nu) + Nu + j] = x_N[j];
 	}
@@ -489,7 +489,7 @@ double PNSolver::evaluate_risk() {
 	
 	// Get diag and mean
 	vectordb mean, norm_vector;
-	mean.reserve(N*(Nineq) + Ntineq);
+	mean.reserve(N*Nineq + Ntineq);
 	norm_vector.reserve(N*Nineq + Ntineq);
 	matrixdb D_f, product;
 	vector<matrixdb> list_der;
@@ -521,6 +521,8 @@ double PNSolver::evaluate_risk() {
 				vectordb(D_f.getrow(j)).dot(vectordb(product.getcol(j)))
 				);
 	}
+
+	// cout << mean.extract(10, 20) << endl;
 
 	// Return
 	return max(0, dth_order_risk_estimation(mean, norm_vector));
@@ -588,7 +590,7 @@ void PNSolver::update_constraints_(
 	// Loop on all steps
 	vectorDA x_DA, u_DA, dx_u_DA;
 	vectordb x_ip1, dx_u(Nx + Nu);
-	vectorDA INEQ_stochastic(N*(Nineq + 0) + Ntineq + 0, 0);
+	vectorDA INEQ_stochastic(N*Nineq  + Ntineq);
 	for (size_t i = 0; i < N; i++) {
 
 		// Get dx_u and x_ip1
@@ -653,7 +655,7 @@ void PNSolver::update_constraints_(
 		// Assign
 		list_constraints_eval_[i] = constraints_eval;
 		for (size_t k = 0; k < Nineq; k++) {
-			INEQ_stochastic[i*(Nineq + 0) + k] = constraints_eval[k];}
+			INEQ_stochastic[i*Nineq  + k] = constraints_eval[k];}
 
 		// Add continuity constraints
 		vectorDA eq_eval = x_ip1_eval - x_ip1;
@@ -670,7 +672,7 @@ void PNSolver::update_constraints_(
 
 		// Assign
 		for (size_t k = 0; k < Nx; k++) {
-			INEQ_[i*(Nx + Nineq + 0) + k] = eq_eval[k].cons();}
+			INEQ_[i*(Nx + Nineq) + k] = eq_eval[k].cons();}
 	}
 
 	// Update terminal constraints
@@ -689,7 +691,7 @@ void PNSolver::update_constraints_(
 	// Assign
 	list_constraints_eval_[N] = constraints_eval;
 	for (size_t k = 0; k < Ntineq; k++) {
-		INEQ_stochastic[N*(Nineq  + 0) + k] = constraints_eval[k];}
+		INEQ_stochastic[N*Nineq + k] = constraints_eval[k];}
 
 	// Transcription
 	INEQ_stochastic = dth_order_inequality_transcription(
@@ -704,24 +706,24 @@ void PNSolver::update_constraints_(
 	// Path
 	for (size_t i=0; i<N; i++) {
 		vector<matrixdb> der_ineq = deriv_xu(
-				INEQ_stochastic.extract(i*(Nineq + 0), (i+1)*(Nineq + 0) - 1), Nx, Nu, false);
+				INEQ_stochastic.extract(i*Nineq, (i + 1)*Nineq - 1), Nx, Nu, false);
 		der_INEQ_[6*i + 3] = der_ineq[0];
 		der_INEQ_[6*i + 4] = der_ineq[1];
 	}
 
 	// Terminal
 	vector<matrixdb> der_tineq = deriv_xu(
-		INEQ_stochastic.extract(N*(Nineq + 0), N*(Nineq  + 0) + Ntineq + 0 - 1), Nx, Nu, false);
+		INEQ_stochastic.extract(N*Nineq, N*Nineq  + Ntineq - 1), Nx, Nu, false);
 	der_INEQ_[6*N] = der_tineq[0];
 	der_INEQ_[6*N + 1] = der_tineq[1];
 
 	// Assign
 	for (size_t i=0; i<N; i++) {
 		for (size_t k = 0; k < Nineq + 0; k++) {
-			INEQ_[i*(Nx + Nineq + 0) + Nx + k] = INEQ_stochastic[i*(Nineq  + 0) + k].cons();}
+			INEQ_[i*(Nx + Nineq) + Nx + k] = INEQ_stochastic[i*Nineq + k].cons();}
 	}
 	for (size_t k = 0; k < Ntineq + 0; k++) {
-		INEQ_[N*(Nx + Nineq + 0) + k] = INEQ_stochastic[N*(Nineq  + 0) + k].cons();}
+		INEQ_[N*(Nx + Nineq) + k] = INEQ_stochastic[N*Nineq + k].cons();}
 }
 
 // Computes the new constraints given states and controls.
@@ -796,10 +798,11 @@ vectordb PNSolver::update_constraints_double_(
 			x_DA, u_DA, spacecraft_parameters_, constants, solver_parameters_);
 
 		// Assign
+		list_constraints_eval_[i] = constraints_eval;
 		for (size_t k = 0; k < Nx; k++) {
-			INEQ[i*(Nx + Nineq + 0) + k] = x_ip1_eval[k];}
+			INEQ[i*(Nx + Nineq) + k] = x_ip1_eval[k];}
 		for (size_t k = 0; k < Nineq; k++) {
-			INEQ_stochastic[i*(Nineq + 0) + k] = constraints_eval[k];}
+			INEQ_stochastic[i*Nineq + k] = constraints_eval[k];}
 	}
 
 	// Update terminal constraints
@@ -813,8 +816,9 @@ vectordb PNSolver::update_constraints_double_(
 		x_DA, x_goal.nominal_state(), spacecraft_parameters_, constants, solver_parameters_);
 
 	// Assign
+	list_constraints_eval_[N] = constraints_eval;
 	for (size_t k = 0; k < Ntineq; k++) {
-		INEQ_stochastic[N*(Nineq + 0) + k] = constraints_eval[k];}
+		INEQ_stochastic[N*Nineq + k] = constraints_eval[k];}
 
 	// Transcription
 	INEQ_stochastic = dth_order_inequality_transcription(

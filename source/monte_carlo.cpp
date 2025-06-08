@@ -176,7 +176,7 @@ vectordb propagate_trajectory(
 		constraints = list_constraints[i];
 		for (size_t j=0; j<Nineq; j++) {
 			if (constraints[j]>max_constraint)
-				max_constraint = constraints[j];
+				{max_constraint = constraints[j];}
 		}
 	}
 	constraints = list_constraints[N];
@@ -189,11 +189,7 @@ vectordb propagate_trajectory(
 	if (max_constraint > 0) {
 
 			cout << index_nominal << ", " 
-			<< list_maha[0].first << " - " 
-			<< list_x_sample[0][3] << ", " 
-			<< list_x_sample[0][4] << " - " 
-			<< list_x_sample[N][3] << ", " 
-			<< list_x_sample[N][4] << ", " << endl;
+			<< list_maha[0].first << endl;
 	}
 	*/
 
