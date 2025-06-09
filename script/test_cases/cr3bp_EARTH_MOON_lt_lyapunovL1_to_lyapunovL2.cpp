@@ -53,14 +53,14 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunov
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
 		terminal_cost_gain = 1e5;
-		homotopy_sequence = vectordb{0, 0.75, 0.975};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3};
-		AUL_transcription_parameter = 3;
-		mu_parameters[2] = 7;
+		homotopy_sequence = vectordb{0, 0.75, 0.975, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 5e-3};
+		AUL_transcription_parameter = 4; //3
+		mu_parameters[2] = 2; //7
 	}
 
 	double DDP_tol = 1e-4;
-	
+	double AUL_magnitude_perturbation(AUL_tol);
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-2;
 	double PN_active_constraint_tol = 1e-13;
@@ -93,6 +93,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_lyapunovL1_to_lyapunov
 		DDP_tol, AUL_tol, PN_tol,
 		LOADS_tol, LOADS_max_depth,
 		AUL_transcription_parameter,
+		AUL_magnitude_perturbation,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,

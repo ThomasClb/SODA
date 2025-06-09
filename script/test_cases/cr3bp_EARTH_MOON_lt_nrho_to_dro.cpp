@@ -54,9 +54,11 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 		homotopy_sequence = vectordb{0, 0.8, 0.95, 0.99}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
 		AUL_transcription_parameter = 3.85;
+		mu_parameters[2] = 1.75;
 	}
 
 	double DDP_tol = 1e-4;
+	double AUL_magnitude_perturbation(AUL_tol);
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-3;
 	double PN_active_constraint_tol = 1e-13;
@@ -88,6 +90,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_nrho_to_dro(
 		DDP_tol, AUL_tol, PN_tol,
 		LOADS_tol, LOADS_max_depth,
 		AUL_transcription_parameter,
+		AUL_magnitude_perturbation,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,

@@ -40,6 +40,8 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	vectordb mu_parameters{1, 1e8, 10};
 	double AUL_transcription_parameter = 1.0;
 	vectordb homotopy_sequence, huber_loss_coefficient_sequence;
+	double AUL_tol = 1e-6;
+	double AUL_magnitude_perturbation = AUL_tol;
 	if (!robust_solving){
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 2e-3, 1e-3, 5e-4};
@@ -50,17 +52,13 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		AUL_transcription_parameter = 2.0;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
-		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 2e-3, 1e-3, 1e-3}; 
-		mu_parameters[2] = 2.7; 
-		AUL_transcription_parameter = 1.0;
+		AUL_magnitude_perturbation = 10*AUL_tol;
+		homotopy_sequence = vectordb{0, 0.95, 0.995};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 5e-4}; 
+		mu_parameters[2] = 2;
 	}
-
-	double DDP_tol = 1e-4;
-	double AUL_tol = 1e-6;
 	double PN_tol = 1e-12;
 	double LOADS_tol = 1e-3;
-	
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -91,6 +89,7 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		DDP_tol, AUL_tol, PN_tol,
 		LOADS_tol, LOADS_max_depth,
 		AUL_transcription_parameter,
+		AUL_magnitude_perturbation,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,

@@ -274,7 +274,6 @@ void PNSolver::solve(
 		auto start = high_resolution_clock::now();
 		auto stop = high_resolution_clock::now();
 		duration_pn = 0.0;
-		// cout << 100*beta_star << " - " << 100*d_th_order_failure_risk_k << endl;
 		if (d_th_order_failure_risk_k > beta_star) {
 			for (size_t i = 0; i < max_iter; i++) {
 				n_iter ++;
@@ -364,6 +363,14 @@ void PNSolver::solve(
 		n_iter_ += n_iter;
 		update_robust_trajectory(p_list_trajectory_split, k);
 
+		// Update beta_T
+		d_th_order_failure_risk_k = evaluate_risk();
+		double beta_T_k(min(beta_star, d_th_order_failure_risk_k));
+		double delta_k(beta_star - beta_T_k);
+		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
+		d_th_order_failure_risk_ += alpha_k*d_th_order_failure_risk_k;
+		duration_total += duration_pn;		
+
 		// Output
 		if (verbosity == 1) {
 			cout << p_list_trajectory_split->at(k).splitting_history().to_string() << ", " 
@@ -378,16 +385,10 @@ void PNSolver::solve(
 		}
 
 		// Update beta_star
-		d_th_order_failure_risk_k = evaluate_risk();
-		double beta_T_k(min(beta_star, d_th_order_failure_risk_k));
-		double delta_k(beta_star - beta_T_k);
-		double alpha_k(p_list_trajectory_split->at(k).splitting_history().alpha());
 		if (k+1 < K) {
 			double alpha_ip1(p_list_trajectory_split->at(k + 1).splitting_history().alpha());
 			beta_star = min(1.0 - EPS, solver_parameters_.transcription_beta() + alpha_k/alpha_ip1*delta_k);
 		}
-		d_th_order_failure_risk_ += alpha_k*d_th_order_failure_risk_k;
-		duration_total += duration_pn;		
 	}
 	reverse(p_list_trajectory_split->begin(), p_list_trajectory_split->end());
 
