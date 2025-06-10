@@ -35,7 +35,7 @@ public:
     // Destructor
     ~SplittingHistory();
 
-    // Getters
+    // Returns the probability of ending in that branch.
     const double alpha() const;
 
     // Checks if two splitting histories can be merged.

@@ -276,7 +276,6 @@ DACE::AlgebraicVector<T> acceleration_tbp_EARTH_lt(
 	double v_e = spacecraft_parameters.ejection_velocity(); // [VU]
 	double lu = constants.lu();
 	double mu = MU_EARTH / constants.mu();
-	bool with_J2 = solver_parameters.with_J2();
 	T sma = x[0]; // Equinoctial elements
 	T P_1 = x[1];
 	T P_2 = x[2];
@@ -309,6 +308,7 @@ DACE::AlgebraicVector<T> acceleration_tbp_EARTH_lt(
 	T pert_N = u_N;
 
 	// J2
+	bool with_J2(false);
 	if (with_J2) {
 		T G_2 = pow(G, 2.0);
 		T J2_mag = (1.5 * J_2 * MU_EARTH * pow(R_EARTH, 2)) * pow(sma * lu * pow(B, 2) * inv_Phi_L, -4);

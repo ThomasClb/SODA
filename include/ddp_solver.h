@@ -165,21 +165,11 @@ public:
 	void backward_sweep_DDP_();
 
 	// Performs the DDP forward pass, that consists in the computation
-	// of the new states and control after correction.
-	// Inspired from ALTRO (Julia).
-	// DA only for automatic differentiation.
-	// See: https://github.com/RoboticExplorationLab/Altro.jl
-	// No unit test.
-	void forward_pass_(
-		std::vector<statedb> const& list_x,
-		std::vector<controldb> const& list_u,
-		statedb const& x_goal);
-
-	// Performs the DDP forward pass, that consists in the computation
 	// of the new states and control after correction using the DA mapping
 	// The linesearch is tweaked to implement a memory from one iteration to the other.
+	// DOI: 10.48550/arXiv.2502.00398 
 	// No unit test.
-	void forward_pass_DA_(
+	void forward_pass_(
 		std::vector<statedb> const& list_x,
 		std::vector<controldb> const& list_u,
 		statedb const& x_goal);
@@ -188,6 +178,7 @@ public:
 	// initial controls and a final state.
 	// Inspired from ALTRO (Julia).
 	// See: https://github.com/RoboticExplorationLab/Altro.jl
+	// DOI: 10.48550/arXiv.2502.00398 
 	// No unit test.
 	void solve(
 		statedb const& x0,

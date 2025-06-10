@@ -15,10 +15,6 @@ from classes import Constants, SpacecraftParameters, Dataset
 from plot_2d import plot_2d
 from plot_2d_pdf import plot_2d_pdf
 from plot_thrust_profile import plot_thrust_profile
-from plot_nli import plot_nli
-from plot_double_integrator import plot_double_integrator_u, plot_double_integrator_x
-from plot_hypervolume import plot_hypervolume
-from compute_LAM import compute_LAM
 import matplotlib.pyplot as plt
 
 global ALPHA_0_GMM, ALPHA_1_GMM
@@ -41,7 +37,7 @@ def get_dataset(file_name):
 
 """
 if __name__ == "__main__":
-    # Change directory to L-SODA for Windows
+    # Change directory to SODA for Windows
     # os.chdir("../../")
     
     # Get arguments.
@@ -58,8 +54,7 @@ if __name__ == "__main__":
         inv_beta = int(1.0/float(list_arguments[2]))
     T2m_ratio = list_arguments[3]
     ToF = int(list_arguments[4])
-    DDP_type = int(list_arguments[5])
-    show_sample = int(list_arguments[6])
+    show_sample = int(list_arguments[5])
     
     extra = "" # At the end of the file name.
     
@@ -88,8 +83,8 @@ if __name__ == "__main__":
     
     if extra != "":
         extra = "_" + extra
-    file_name_robust = file_name_robust + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + "_" + str(DDP_type) + extra + ".dat"
-    file_name_sample = file_name_sample + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + "_" + str(DDP_type) + extra + ".dat"
+    file_name_robust = file_name_robust + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + extra + ".dat"
+    file_name_sample = file_name_sample + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + extra + ".dat"
     
     # Keywords to generate 2d plots and thurst plot.
     list_2d = ["tbp", "lyapunov", "dro", "leo", "meo", "halo"]
@@ -104,19 +99,12 @@ if __name__ == "__main__":
         dataset_sample = Dataset()
     
     # Plots
-    
-    # Only for double integrator (test case 0).
-    if ("double_integrator" in file_name_robust):
-        plot_double_integrator_u(dataset_robust, dataset_sample)
-        plot_double_integrator_x(dataset_robust, dataset_sample)
 
     # Astrodynamics test cases.
-    else:   
-        plot_thrust_profile(dataset_robust, dataset_sample)
-        # compute_LAM(dataset_robust, dataset_sample)
-        for i in list_2d:
-            if i in file_name_robust:
-                plot_2d(dataset_robust, dataset_sample)
-                plot_2d_pdf(dataset_robust, dataset_sample)
-                break
+    plot_thrust_profile(dataset_robust, dataset_sample)
+    for i in list_2d:
+        if i in file_name_robust:
+            plot_2d(dataset_robust, dataset_sample)
+            plot_2d_pdf(dataset_robust, dataset_sample)
+            break
     

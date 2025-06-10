@@ -91,9 +91,8 @@ public:
 
 	// Performs solving given a starting point,
 	// initial controls and a final state.
-	// Inspired from ALTRO (Julia).
-	// See: https://github.com/RoboticExplorationLab/Altro.jl
 	// No unit test.
+	// DOI: WIP
 	void solve(
 		statedb const& x0,
 		std::vector<controldb> const& list_u_init,

@@ -52,6 +52,8 @@ matrixdb generate_normal_sample(
   	return output;
 }
 
+// Returns the empirical quantile value for a given probability.
+// No unit test.
 double get_quantile(vectordb const& sample, double const& probability) {
 	unsigned int d = sample.size();
 	vector<double> sample_sorted(sample);

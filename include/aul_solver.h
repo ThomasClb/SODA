@@ -97,7 +97,7 @@ public:
 	void update_mu_();
 
 	// Computes the d-th order risk.
-	// DOI: WIP
+	// DOI: 10.48550/arXiv.2502.15949
 	// No unit test.
 	double evaluate_risk();
 

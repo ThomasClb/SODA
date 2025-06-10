@@ -249,7 +249,6 @@ void AULSolver::solve(
 	vectordb mu_parameters = solver_parameters.mu_parameters();
 	vectordb lambda_parameters = solver_parameters.lambda_parameters();
 	unsigned int verbosity = solver_parameters.verbosity();
-	unsigned int saving_iterations = solver_parameters.saving_iterations();
 	double transcription_beta = solver_parameters.transcription_beta();
 	Constants constants = DDPsolver_.dynamics().constants();
 	double AUL_magnitude_perturbation = solver_parameters.AUL_magnitude_perturbation();
@@ -269,7 +268,6 @@ void AULSolver::solve(
 		cout << "Homotopy coefficient [0, 1] : " << solver_parameters.homotopy_coefficient() << endl;
 		cout << "Huber-loss coefficient [0, 1] : " << solver_parameters.huber_loss_coefficient() << endl;
 		cout << "Target failure risk [%] : " << 100*transcription_beta << endl;
-		// cout << "Intial covariance norm [-] : " << frobenius_norm_(x0.Sigma());
 		cout << endl << endl << endl;
 	}
 	else if (verbosity == 1) {
@@ -333,8 +331,7 @@ void AULSolver::solve(
 		// Init loop variables.
 		bool loop = true;
 		bool merged = false;
-		double cost = 1e15;
-		cost_ = cost;
+		double cost = 1e15; cost_ = cost;
 		unsigned int AUL_n_iter = 0;
 		unsigned int DDP_n_iter = 0;
 		violation_ = cost;
@@ -456,7 +453,6 @@ void AULSolver::solve(
 								}
 							}
 
-							// Merge
 							if (merge) {
 								// Assign and remove -1 and 1 from p_list_trajectory_split
 								trajectory_split_ = trajectory_split_merge;
@@ -545,10 +541,10 @@ void AULSolver::solve(
 			// If not, update
 			if (update_child) {
 				SplittingHistory history_i(p_list_trajectory_split->at(i).splitting_history());				
-				p_list_trajectory_split->at(i) = trajectory_split_.get_splited_trajectory(
+				p_list_trajectory_split->at(i) = trajectory_split_.get_splitted_trajectory(
 	    			p_list_trajectory_split->at(i).list_x()[0].nominal_state(),
 	    			p_list_trajectory_split->at(i).list_x()[0].Sigma(),
-	    			DDPsolver_, true);
+	    			DDPsolver_);
     			p_list_trajectory_split->at(i).set_splitting_history(history_i);
     			pair<vector<vectordb>,vector<vectordb>> list_lambda_mu_i(list_lambda_, list_mu_);
   				for (size_t k=0; k<N+1; k++) {

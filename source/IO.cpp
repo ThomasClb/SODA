@@ -218,8 +218,7 @@ void print_sample_trajectory_dataset(
 		+ to_string(inv_LOADS_max_depth) + "_"
 		+ to_string(inv_beta) + "_"
 		+ str_T2m + "_"
-		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
-		+ to_string(solver_parameters.DDP_type())
+		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS))
 		+ ".dat";
 
 	print_dataset(
@@ -392,8 +391,7 @@ void print_robust_trajectory_dataset(
 		+ to_string(inv_LOADS_max_depth) + "_"
 		+ to_string(inv_beta) + "_"
 		+ str_T2m + "_"
-		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
-		+ to_string(solver_parameters.DDP_type())
+		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS))
 		+ ".dat";
 
 	print_dataset(
@@ -429,8 +427,7 @@ RobustTrajectory load_robust_trajectory(
 		+ to_string(inv_LOADS_max_depth) + "_"
 		+ to_string(inv_beta) + "_"
 		+ str_T2m + "_"
-		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS)) + "_"
-		+ to_string(solver_parameters.DDP_type())
+		+ to_string((int)(ToF*spacecraft_parameters.constants().tu()*SEC2DAYS))
 		+ ".dat";
 	
 	// Open file

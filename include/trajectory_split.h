@@ -79,9 +79,9 @@ public:
         std::size_t const& index, double const& transcription_beta);
 
     // Return an updated splitted trajectory.
-    TrajectorySplit get_splited_trajectory(
+    TrajectorySplit get_splitted_trajectory(
         DACE::vectordb const& modified_x0, DACE::matrixdb const& modified_Sigma,
-        DDPSolver const& DDPsolver, bool const& perturbation);
+        DDPSolver const& DDPsolver);
 
     // Split a TrajectorySplit into 3 along a given direction.
     std::pair<TrajectorySplit,TrajectorySplit> split(
@@ -91,7 +91,6 @@ public:
     // The merged split is the central one.
     void merge(
         unsigned int const& dir, DDPSolver const& DDPsolver);
-
 
     // Friend functions for stream operators
     friend std::ostream& operator<<(std::ostream& os, const TrajectorySplit& ts);

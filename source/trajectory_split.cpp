@@ -76,9 +76,10 @@ unsigned int TrajectorySplit::find_splitting_direction(
     return dir;
 }
 
-TrajectorySplit TrajectorySplit::get_splited_trajectory(
+// Returns a splitted trajectory.
+TrajectorySplit TrajectorySplit::get_splitted_trajectory(
     vectordb const& modified_x0, matrixdb const& modified_Sigma,
-    DDPSolver const& DDPsolver, bool const& perturbation) {
+    DDPSolver const& DDPsolver) {
     // Init
     size_t N = list_u_.size();
     size_t Nx(list_x_[0].nominal_state().size());
@@ -145,10 +146,10 @@ pair<TrajectorySplit, TrajectorySplit> TrajectorySplit::split(
     // Side splits
 
     // Init
-    TrajectorySplit trajectory_split_m1(this->get_splited_trajectory(
-        get<1>(gmm_output[0]), get<2>(gmm_output[0]), DDPsolver, false));
-    TrajectorySplit trajectory_split_p1(this->get_splited_trajectory(
-        get<1>(gmm_output[2]), get<2>(gmm_output[2]), DDPsolver, false));
+    TrajectorySplit trajectory_split_m1(this->get_splitted_trajectory(
+        get<1>(gmm_output[0]), get<2>(gmm_output[0]), DDPsolver));
+    TrajectorySplit trajectory_split_p1(this->get_splitted_trajectory(
+        get<1>(gmm_output[2]), get<2>(gmm_output[2]), DDPsolver));
 
     // History
     trajectory_split_m1.splitting_history_.back().second = -1;

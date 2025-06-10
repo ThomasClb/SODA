@@ -54,8 +54,7 @@ const size_t SODA::DDP_n_iter() const { return DDP_n_iter_; }
 
 // Performs solving given a starting point,
 // initial controls and a final state.
-// Inspired from ALTRO (Julia).
-// See: https://github.com/RoboticExplorationLab/Altro.jl
+// DOI: WIP
 void SODA::solve(
 	statedb const& x0,
 	vector<controldb> const& list_u_init,
@@ -114,7 +113,6 @@ void SODA::solve(
 		} // Else list_trajectory_split_ is already configured
 
 		// Solve
-		
 		AULsolver_.solve(&list_trajectory_split_, x_goal);
 		counter ++;
 		DDP_n_iter_ += AULsolver_.DDP_n_iter();

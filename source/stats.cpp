@@ -68,7 +68,7 @@ double inv_chi_2_cdf(unsigned int const& d, double const& p) {
 }
 
 // Computes the conservatism.
-// DOI: WIP
+// DOI: 10.48550/arXiv.2502.15949
 double conservatism(double const& beta, double const& beta_r) {
 	return beta/beta_r*sqrt(((1-sqr(beta_r))/(1-sqr(beta))));
 }

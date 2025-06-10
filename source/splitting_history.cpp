@@ -24,6 +24,7 @@ SplittingHistory& SplittingHistory::operator=(SplittingHistory const& history) =
 // Destructor
 SplittingHistory::~SplittingHistory() = default;
 
+// Returns the probability of ending in that branch.
 const double SplittingHistory::alpha() const {
 	double alpha = 1.0;
 	for (size_t i=0; i<this->size(); i++) {

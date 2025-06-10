@@ -695,7 +695,7 @@ void PNSolver::update_constraints_(
 		INEQ_stochastic[N*Nineq + k] = constraints_eval[k];}
 
 	// Transcription
-	INEQ_stochastic = dth_order_inequality_transcription(
+	INEQ_stochastic = first_order_transcription(
 		INEQ_stochastic,
 		list_Sigma_, list_feedback_gain_,
 		eta_,
@@ -822,7 +822,7 @@ vectordb PNSolver::update_constraints_double_(
 		INEQ_stochastic[N*Nineq + k] = constraints_eval[k];}
 
 	// Transcription
-	INEQ_stochastic = dth_order_inequality_transcription(
+	INEQ_stochastic = first_order_transcription(
 		INEQ_stochastic,
 		list_Sigma_, list_feedback_gain_,
 		eta_,

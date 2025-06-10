@@ -97,6 +97,7 @@ public:
 		std::size_t const& k);
 
 	// Updates the transcription method parameter eta.
+	// DOI: WIP
 	void update_eta_(
 		double const& beta_star,
 		double const& beta_d,
@@ -108,6 +109,7 @@ public:
 	// Inspired by ALTRO (Julia).
 	// See: https://github.com/RoboticExplorationLab/Altro.jl
 	// No unit test.
+	// DOI: 10.48550/arXiv.2502.00398 
 	void solve(std::deque<TrajectorySplit>* const& p_list_trajectory_split, statedb const& x_goal);
 	
 	// Iterative line search for PN.
@@ -123,7 +125,7 @@ public:
 		double const& violation_0);
 
 	// Evaluates the dth order risk.
-	// DOI: WIP.
+	// DOI: 10.48550/arXiv.2502.15949
 	// No unit test.
 	double evaluate_risk();
 
@@ -166,6 +168,7 @@ public:
 	// Where D_a is the gradient of the active linearized constraints.
 	// Using tridiagonal symetric block computation.
 	// No unit test.
+	// DOI: 10.48550/arXiv.2502.00398 
 	sym_tridiag_matrixdb get_block_S_sq_(
 		std::vector<DACE::matrixdb> const& block_Delta,
 		std::vector<std::vector<std::size_t>> const& list_active_index);

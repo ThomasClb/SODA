@@ -128,11 +128,11 @@ template<typename T> T delta_phi(unsigned int const& d, T const& r_1, T const& r
 }
 
 // Computes the conservatism.
-// DOI: WIP
+// DOI: 10.48550/arXiv.2502.15949
 double conservatism(double const& beta, double const& beta_r);
 
 // Computes the Mahalanobis distance from constraints to a normal distribution.
-// DOI: WIP
+// DOI: 10.48550/arXiv.2502.15949
 template<typename T> DACE::AlgebraicVector<T>  get_list_distance(
 	DACE::AlgebraicVector<T> const& mean, DACE::AlgebraicVector<T> const& diag_Sigma) {
 	std::size_t d(mean.size());
@@ -147,7 +147,7 @@ template<typename T> DACE::AlgebraicVector<T>  get_list_distance(
 }
 
 // Computes the first order failure risk estimation.
-// DOI: WIP
+// DOI: 10.48550/arXiv.2502.15949
 template<typename T> T first_order_risk_estimation(
 	DACE::AlgebraicVector<T> const& mean, DACE::AlgebraicVector<T> const& diag_Sigma) {
 	// Get dimensions
@@ -168,7 +168,7 @@ template<typename T> T first_order_risk_estimation(
 }
 
 // Computes the d-th order failure risk estimation.
-// DOI: WIP
+// DOI: 10.48550/arXiv.2502.15949
 template<typename T> T dth_order_risk_estimation(
 	DACE::AlgebraicVector<T> const& mean, DACE::AlgebraicVector<T> const& diag_Sigma) {
 

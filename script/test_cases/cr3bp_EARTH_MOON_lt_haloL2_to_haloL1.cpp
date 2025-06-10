@@ -16,7 +16,7 @@ using namespace std::chrono;
 using namespace std;
 
 SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
-	unsigned int const& N, unsigned int const& DDP_type,
+	unsigned int const& N,
 	double const& position_error_sqr, double const& velocity_error_sqr, 
 	matrixdb const& navigation_error_covariance,
 	double const& transcription_beta, double const& LOADS_max_depth,
@@ -27,7 +27,6 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 	unsigned int Nu = SIZE_VECTOR / 2;
 	unsigned int Nineq = 2;
 	unsigned int Ntineq = 1;
-	bool with_J2 = false;
 	double cost_to_go_gain = 1e-1;
 	double terminal_cost_gain = 1e8;
 	matrixdb terminal_cost_inv_covariance = make_diag_matrix_(
@@ -36,14 +35,29 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 			1/velocity_error_sqr, 1/velocity_error_sqr, 1/velocity_error_sqr});
 	double mass_leak = 1e-5;
 	double homotopy_coefficient = 0.0;
-	double huber_loss_coefficient = 5e-3;
-	double AUL_transcription_parameter = 2.5;
-	double AUL_tol = 1e-6;
-	unsigned int AUL_max_iter = 100;
-	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
-	vectordb mu_parameters{1, 1e8, 5};
-
+	double huber_loss_coefficient = 5e-3;	
 	vectordb homotopy_sequence, huber_loss_coefficient_sequence;
+	double DDP_tol = 1e-4;
+	double AUL_tol = 1e-6;
+	double PN_tol = 1e-12;
+	double LOADS_tol = 1e-3;
+	double AUL_transcription_parameter = 2.5;
+	double AUL_magnitude_perturbation = AUL_tol;
+	double PN_active_constraint_tol = 1e-13;
+	unsigned int max_iter = 10000;
+	unsigned int DDP_max_iter = 100;
+	unsigned int AUL_max_iter = 100;
+	unsigned int PN_max_iter = 5000;
+	vectordb mu_parameters{1, 1e8, 5};
+	vectordb lambda_parameters{0.0, 1e8};
+	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
+	bool backward_sweep_regulation = true;
+	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.6};
+	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.5};
+	double PN_regularisation(1e-8);
+	double PN_cv_rate_threshold(1.1);
+	double PN_alpha(1.0); double PN_gamma(0.5);
+	
 	if (!robust_solving){
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 1e-3};
@@ -55,34 +69,16 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 		AUL_transcription_parameter = 5;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
-		homotopy_sequence = vectordb{0, 0.5, 0.975, 0.99};
+		homotopy_sequence = vectordb{0, 0.5, 0.95, 0.99};
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
 		AUL_transcription_parameter = 1; // 1.05
 		PN_transcription_parameters[1] = 0.1;
 		mu_parameters[2] = 2;
 	}
 
-	double DDP_tol = 1e-4;
-	double PN_tol = 1e-12;
-	double LOADS_tol = 1e-3;
-	double PN_active_constraint_tol = 1e-13;
-	unsigned int max_iter = 10000;
-	unsigned int DDP_max_iter = 100;
-	double AUL_magnitude_perturbation(AUL_tol);
-	unsigned int PN_max_iter = 5000;
-	vectordb lambda_parameters{0.0, 1e8};
-	vectordb line_search_parameters{1e-10, 10.0, 0.5, 20};
-	bool backward_sweep_regulation = true;
-	vectordb backward_sweep_regulation_parameters{0, 1e-8, 1e15, 1.6};
-	double PN_regularisation(1e-8);
-	double PN_cv_rate_threshold(1.1);
-	double PN_alpha(1.0); double PN_gamma(0.5);
-	
-	unsigned int saving_iterations = 0;
-
 	return SolverParameters(
 		N, Nx, Nu,
-		Nineq, Ntineq, with_J2,
+		Nineq, Ntineq,
 		cost_to_go_gain, terminal_cost_gain,
 		terminal_cost_inv_covariance,
 		navigation_error_covariance,
@@ -90,7 +86,6 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 		homotopy_coefficient, huber_loss_coefficient,
 		homotopy_sequence,
 		huber_loss_coefficient_sequence,
-		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
 		LOADS_tol, LOADS_max_depth,
 		AUL_transcription_parameter,
@@ -103,50 +98,48 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 		PN_regularisation, PN_active_constraint_tol,
 		PN_cv_rate_threshold, PN_alpha, PN_gamma,
 		PN_transcription_parameters,
-		verbosity, saving_iterations);
+		verbosity);
 }
 
 void cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(int argc, char** argv) {
 	// Input check
-	if (argc < 14) {
+	if (argc < 13) {
 		cout << "Wrong number of arguments." << endl;
-		cout << "Requested number : 9" << endl;
-		cout << "0 - Test case number." << endl;
-		cout << "1 - SpacecraftParameter adress." << endl;
-		cout << "2 - DDP type [0/1]." << endl;
-		cout << "3 - Number of nodes [-]." << endl;
-		cout << "4 - Time of flight [days]." << endl;
-		cout << "5 - Perform robust optimisation [0/1]." << endl;
-		cout << "6 - LOADS max depth [0, 1]." << endl;
-		cout << "7 - Target failure risk [0, 1]." << endl;
-		cout << "8 - Perform fuel-optimal optimisation [0/1]." << endl;
-		cout << "9 - Perform projected Newton solving [0/1]." << endl;
-		cout << "10 - Save results [0/1]." << endl;
-		cout << "11 - Load trajectory [0/1]." << endl;
-		cout << "12 - MC sample  size [-]." << endl;
-		cout << "13 - Verbosity [0-2]." << endl;
+		cout << "Requested number : 12" << endl;
+		cout << "0 - SpacecraftParameter adress." << endl;
+		cout << "1 - DDP type [0/1]." << endl;
+		cout << "2 - Number of nodes [-]." << endl;
+		cout << "3 - Time of flight [days]." << endl;
+		cout << "4 - Perform robust optimisation [0/1]." << endl;
+		cout << "5 - LOADS max depth [0, 1]." << endl;
+		cout << "6 - Target failure risk [0, 1]." << endl;
+		cout << "7 - Perform fuel-optimal optimisation [0/1]." << endl;
+		cout << "8 - Perform projected Newton solving [0/1]." << endl;
+		cout << "9 - Save results [0/1]." << endl;
+		cout << "10 - Load trajectory [0/1]." << endl;
+		cout << "11 - MC sample  size [-]." << endl;
+		cout << "12 - Verbosity [0-2]." << endl;
 		return;
 	}
 
 	// Unpack inputs
 	string spacecraft_parameters_file = argv[2];
-	unsigned int DDP_type = atoi(argv[3]);
-	unsigned int N = atoi(argv[4]);
-	double ToF = atof(argv[5]);
+	unsigned int N = atoi(argv[3]);
+	double ToF = atof(argv[4]);
 	bool robust_solving = false;
-	double LOADS_max_depth = atof(argv[7]);
-	double transcription_beta = atof(argv[8]);
+	double LOADS_max_depth = atof(argv[6]);
+	double transcription_beta = atof(argv[7]);
 	bool fuel_optimal = false;
 	bool pn_solving = false;
 	bool save_results = false;
 	bool load_trajectory = false;
-	unsigned int size_sample = atoi(argv[13]);
-	int verbosity = atoi(argv[14]);
-	if (atoi(argv[6]) == 1) { robust_solving = true; }
-	if (atoi(argv[9]) == 1) { fuel_optimal = true; }
-	if (atoi(argv[10]) == 1) { pn_solving = true; }
-	if (atoi(argv[11]) == 1) { save_results = true; }
-	if (atoi(argv[12]) == 1) { load_trajectory = true; }
+	if (atoi(argv[5]) == 1) { robust_solving = true; }
+	if (atoi(argv[8]) == 1) { fuel_optimal = true; }
+	if (atoi(argv[9]) == 1) { pn_solving = true; }
+	if (atoi(argv[10]) == 1) { save_results = true; }
+	if (atoi(argv[11]) == 1) { load_trajectory = true; }
+	unsigned int size_sample = atoi(argv[12]);
+	int verbosity = atoi(argv[13]);
 
 	// Get dynamics
 	Dynamics dynamics = get_cr3bp_EARTH_MOON_lt_dynamics();
@@ -172,7 +165,7 @@ void cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(int argc, char** argv) {
 	// Init solver parameters
 	double terminal_position_error_sqr = sqr(position_error/10); double terminal_velocity_error_sqr = sqr(velocity_error/10);
 	SolverParameters solver_parameters = get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
-		N, DDP_type, terminal_position_error_sqr, terminal_velocity_error_sqr,
+		N, terminal_position_error_sqr, terminal_velocity_error_sqr,
 		make_diag_matrix_(sqr(init_convariance_diag/100)), 
 		transcription_beta, LOADS_max_depth, robust_solving, verbosity);
 

@@ -99,7 +99,6 @@ protected:
 	unsigned int Nineq_; // Size of equality constraints vector [-]
 	unsigned int Ntineq_; // Size of terminal equality constraints vector [-]
 	double ToF_; // Time-of-flight, initialized at solving [TU]
-	bool with_J2_; // With J2 dynamics [True/False]
 	double stage_cost_gain_; // sc magnitude [-]
 	double terminal_cost_gain_; // tc magnitude [-]
 	DACE::matrixdb terminal_cost_inv_covariance_; 
@@ -112,7 +111,6 @@ protected:
 	double huber_loss_coefficient_; // Coefficient of the Huber loss regularisation
 	DACE::vectordb homotopy_coefficient_sequence_; // Homotpy coefficient sequence for fuel optimal optimisation
 	DACE::vectordb huber_loss_coefficient_sequence_; // Coefficient of the Huber loss regularisation sequence for fuel optimal optimisation
-	unsigned int DDP_type_; // Choice of the DDP method 0 = classic, 1 = DA-based
 	double DDP_tol_; // DDPSolver tolerance [-]
 	double AUL_tol_; // AULSolver tolerance [-]
 	double PN_tol_; // PNSolver tolerance [-]
@@ -137,7 +135,6 @@ protected:
 	double PN_gamma_; // PN line search reduction factor
 	DACE::vectordb PN_transcription_parameters_; // [eta_initial_value, eta_lb, eta_min_step, eta_max_step]
 	unsigned int verbosity_; // Quantity of display data, 0=full, 1=no DDP.
-	unsigned int saving_iterations_; // Quantity of iterations saved, 0=final solution, 1=final AUL and final PN, 2=AUL and final PN, 3=DDP + AUL and final PN.
 
 // Methods
 public:
@@ -151,7 +148,6 @@ public:
 		unsigned int const& N,
 		unsigned int const& Nx, unsigned int const& Nu,
 		unsigned int const& Nineq, unsigned int const& Ntineq,
-		bool const& with_J2,
 		double const& stage_cost_gain, double const& terminal_cost_gain,
 		DACE::matrixdb const& terminal_cost_inv_covariance,
 		DACE::matrixdb const& navigation_error_covariance,
@@ -159,7 +155,6 @@ public:
 		double const& homotopy_coefficient, double const& huber_loss_coefficient,
 		DACE::vectordb const& homotopy_coefficient_sequence,
 		DACE::vectordb const& huber_loss_coefficient_sequence,
-		unsigned int const& DDP_type,
 		double const& DDP_tol, double const& AUL_tol,
 		double const& PN_tol, double const& LOADS_tol,
 		double const& LOADS_max_depth, double const& AUL_transcription_parameter,
@@ -174,7 +169,7 @@ public:
 		double const& PN_cv_rate_threshold, double const& PN_alpha,
 		double const& PN_gamma,
 		DACE::vectordb const& PN_transcription_parameters,
-		unsigned int const& verbosity, unsigned int const& saving_iterations);
+		unsigned int const& verbosity);
 
 	// Copy constructor
 	SolverParameters(SolverParameters const& param);
@@ -189,7 +184,6 @@ public:
 	const unsigned int Nineq() const;
 	const unsigned int Ntineq() const;
 	const double ToF() const;
-	const bool with_J2() const;
 	const double stage_cost_gain() const;
 	const double terminal_cost_gain() const;
 	const DACE::matrixdb terminal_cost_inv_covariance() const;
@@ -202,7 +196,6 @@ public:
 	const double huber_loss_coefficient() const;
 	const DACE::vectordb homotopy_coefficient_sequence() const;
 	const DACE::vectordb huber_loss_coefficient_sequence() const;
-	const unsigned int DDP_type() const;
 	const double DDP_tol() const;
 	const double AUL_tol() const;
 	const double PN_tol() const;
@@ -227,7 +220,6 @@ public:
 	const double PN_gamma() const;
 	const DACE::vectordb PN_transcription_parameters() const;
 	const unsigned int verbosity() const;
-	const unsigned int saving_iterations() const;
 
 	// Setters
 	void set_navigation_error_covariance(DACE::matrixdb const& navigation_error_covariance);

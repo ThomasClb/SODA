@@ -163,7 +163,7 @@ void SpacecraftParameters::load(string const& file_name) {
 SolverParameters::SolverParameters() :
 	N_(40), Nx_((SIZE_VECTOR + 1) + 1), Nu_(SIZE_VECTOR / 2),
 	Nineq_(2), Ntineq_(0),
-	ToF_(0.0), with_J2_(false),
+	ToF_(0.0), 
 	stage_cost_gain_(1e-2), terminal_cost_gain_(1e4),
 	terminal_cost_inv_covariance_(make_diag_matrix_(sqr(vectordb(SIZE_VECTOR + 1, 1e4)))),
 	navigation_error_covariance_(make_diag_matrix_(sqr(vectordb(SIZE_VECTOR + 1, 1e-4)))),
@@ -171,7 +171,6 @@ SolverParameters::SolverParameters() :
 	homotopy_coefficient_(0), huber_loss_coefficient_(5e-3),
 	homotopy_coefficient_sequence_(1, 0),
 	huber_loss_coefficient_sequence_(1, 1e-2),
-	DDP_type_(0),
 	DDP_tol_(1e-4), AUL_tol_(1e-4), PN_tol_(1e-12),
 	AUL_magnitude_perturbation_(1e-4),
 	LOADS_tol_(1e-2), LOADS_max_depth_(1),
@@ -185,7 +184,7 @@ SolverParameters::SolverParameters() :
 	PN_regularisation_(1e-8), PN_active_constraint_tol_(1e-13),
 	PN_cv_rate_threshold_(1.1), PN_alpha_(1.0), PN_gamma_(0.5),
 	PN_transcription_parameters_(vectordb{1.0, 1e-6, 1e-3, 0.5}),
-	list_lambda_(), list_mu_(), verbosity_(0), saving_iterations_(0) {
+	list_lambda_(), list_mu_(), verbosity_(0) {
 	// Unpack
 	double lambda(lambda_parameters_[0]);
 	double mu(mu_parameters_[0]);
@@ -222,7 +221,6 @@ SolverParameters::SolverParameters(
 	unsigned int const& N,
 	unsigned int const& Nx, unsigned int const& Nu,
 	unsigned int const& Nineq, unsigned int const& Ntineq,
-	bool const& with_J2,
 	double const& stage_cost_gain, double const& terminal_cost_gain,
 	matrixdb const& terminal_cost_inv_covariance,
 	matrixdb const& navigation_error_covariance,
@@ -230,7 +228,6 @@ SolverParameters::SolverParameters(
 	double const& homotopy_coefficient, double const& huber_loss_coefficient,
 	vectordb const& homotopy_coefficient_sequence,
 	vectordb const& huber_loss_coefficient_sequence,
-	unsigned int const& DDP_type,
 	double const& DDP_tol, double const& AUL_tol, double const& PN_tol,
 	double const& LOADS_tol, double const& LOADS_max_depth,
 	double const& AUL_transcription_parameter,
@@ -244,10 +241,9 @@ SolverParameters::SolverParameters(
 	double const& PN_cv_rate_threshold, double const& PN_alpha,
 	double const& PN_gamma,
 	vectordb const& PN_transcription_parameters,
-	unsigned int const& verbosity, unsigned int const& saving_iterations) :
+	unsigned int const& verbosity) :
 	N_(N), Nx_(Nx), Nu_(Nu),
 	Nineq_(Nineq), Ntineq_(Ntineq), ToF_(0.0),
-	with_J2_(with_J2),
 	stage_cost_gain_(stage_cost_gain),
 	terminal_cost_gain_(terminal_cost_gain),
 	terminal_cost_inv_covariance_(terminal_cost_inv_covariance),
@@ -258,7 +254,6 @@ SolverParameters::SolverParameters(
 	huber_loss_coefficient_(huber_loss_coefficient),
 	homotopy_coefficient_sequence_(homotopy_coefficient_sequence),
 	huber_loss_coefficient_sequence_(huber_loss_coefficient_sequence),
-	DDP_type_(DDP_type),
 	DDP_tol_(DDP_tol), AUL_tol_(AUL_tol), PN_tol_(PN_tol),
 	LOADS_tol_(LOADS_tol), LOADS_max_depth_(LOADS_max_depth),
 	AUL_transcription_parameter_(AUL_transcription_parameter),
@@ -271,7 +266,7 @@ SolverParameters::SolverParameters(
 	PN_cv_rate_threshold_(PN_cv_rate_threshold), PN_alpha_(PN_alpha),
 	PN_gamma_(PN_gamma), list_lambda_(), list_mu_(),
 	PN_transcription_parameters_(PN_transcription_parameters),
-	verbosity_(verbosity), saving_iterations_(saving_iterations) {
+	verbosity_(verbosity) {
 	vector<vectordb> list_lambda(N + 1, vectordb(Nineq, lambda_parameters[0]));
 	vector<vectordb> list_mu(N + 1, vectordb(Nineq, mu_parameters[0]));
 	// Unpack
@@ -308,7 +303,7 @@ SolverParameters::SolverParameters(
 SolverParameters::SolverParameters(SolverParameters const& param) :
 	N_(param.N_), Nx_(param.Nx_), Nu_(param.Nu_),
 	Nineq_(param.Nineq_), Ntineq_(param.Ntineq_),
-	ToF_(param.ToF_), with_J2_(param.with_J2_),
+	ToF_(param.ToF_),
 	stage_cost_gain_(param.stage_cost_gain_),
 	terminal_cost_gain_(param.terminal_cost_gain_),
 	terminal_cost_inv_covariance_(param.terminal_cost_inv_covariance_),
@@ -321,7 +316,6 @@ SolverParameters::SolverParameters(SolverParameters const& param) :
 	huber_loss_coefficient_(param.huber_loss_coefficient_),
 	homotopy_coefficient_sequence_(param.homotopy_coefficient_sequence_),
 	huber_loss_coefficient_sequence_(param.huber_loss_coefficient_sequence_),
-	DDP_type_(param.DDP_type_),
 	DDP_tol_(param.DDP_tol_), AUL_tol_(param.AUL_tol_), PN_tol_(param.PN_tol_),
 	LOADS_tol_(param.LOADS_tol_), LOADS_max_depth_(param.LOADS_max_depth_),
 	AUL_transcription_parameter_(param.AUL_transcription_parameter_),
@@ -338,7 +332,7 @@ SolverParameters::SolverParameters(SolverParameters const& param) :
 	PN_cv_rate_threshold_(param.PN_cv_rate_threshold_),
 	PN_alpha_(param.PN_alpha_), PN_gamma_(param.PN_gamma_),
 	PN_transcription_parameters_(param.PN_transcription_parameters_),
-	verbosity_(param.verbosity_), saving_iterations_(param.saving_iterations_) {
+	verbosity_(param.verbosity_) {
 
 	// Init DACE
 	if (!DA::isInitialized()) {
@@ -357,7 +351,6 @@ const unsigned int SolverParameters::Nu() const { return Nu_; }
 const unsigned int SolverParameters::Nineq() const { return Nineq_; }
 const unsigned int SolverParameters::Ntineq() const { return Ntineq_; }
 const double SolverParameters::ToF() const { return ToF_; }
-const bool SolverParameters::with_J2() const { return with_J2_; }
 const double SolverParameters::stage_cost_gain() const { return stage_cost_gain_; }
 const double SolverParameters::terminal_cost_gain() const { return terminal_cost_gain_; }
 const matrixdb SolverParameters::terminal_cost_inv_covariance() const { return terminal_cost_inv_covariance_; }
@@ -372,7 +365,6 @@ const vectordb SolverParameters::homotopy_coefficient_sequence() const {
 	return homotopy_coefficient_sequence_; }
 const vectordb SolverParameters::huber_loss_coefficient_sequence() const {
 	return huber_loss_coefficient_sequence_; }
-const unsigned int SolverParameters::DDP_type() const { return DDP_type_; }
 const double SolverParameters::DDP_tol() const { return DDP_tol_; }
 const double SolverParameters::AUL_tol() const { return AUL_tol_; }
 const double SolverParameters::PN_tol() const { return PN_tol_; }
@@ -405,7 +397,6 @@ const double SolverParameters::PN_alpha() const { return PN_alpha_; }
 const double SolverParameters::PN_gamma() const { return PN_gamma_; }
 const vectordb SolverParameters::PN_transcription_parameters() const {return PN_transcription_parameters_;}
 const unsigned int SolverParameters::verbosity() const { return verbosity_; }
-const unsigned int SolverParameters::saving_iterations() const { return saving_iterations_; }
 
 // Setters
 void SolverParameters::set_navigation_error_covariance(matrixdb const& navigation_error_covariance) {

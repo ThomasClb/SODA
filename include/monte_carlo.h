@@ -28,6 +28,10 @@ DACE::matrixdb generate_normal_sample(
 	std::size_t const& size_sample,
 	DACE::vectordb const& mean, DACE::matrixdb const& covariance);
 
+// Returns the empirical quantile value for a given probability.
+// No unit test.
+double get_quantile(DACE::vectordb const& sample, double const& probability);
+
 // Propagate a trajectory and returns
 // the remaining fuel and the max constraint.
 // No unit test.
