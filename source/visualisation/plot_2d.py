@@ -428,7 +428,7 @@ def plot_2d(dataset, dataset_sample=Dataset()):
     if "mars" in dataset.file_name:
         sample_scale = 500
     elif "halo" in dataset.file_name:
-        sample_scale = 15
+        sample_scale = 100
     elif "nrho" in dataset.file_name:
         sample_scale = 300
     elif "dro_to_dro" in dataset.file_name:

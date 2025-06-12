@@ -108,8 +108,7 @@ TEST(TestStats, GetListDistance) {
 	vectordb list_distance = get_list_distance(mean, get_diag_vector_(Sigma));
 
 	// Test
-	EXPECT_EQ(list_distance.size(), 1 + mean.size());
-	EXPECT_EQ(list_distance[0], 0);
+	EXPECT_EQ(list_distance.size(), mean.size());
 	for (size_t i=0; i<list_distance.size() - 1; i++) {
 		EXPECT_TRUE(list_distance[i] < list_distance[i+1]);
 	}

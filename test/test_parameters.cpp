@@ -210,7 +210,6 @@ TEST(TestSolverParameters, EmptyConstructor) {
 	unsigned int Nu = SIZE_VECTOR / 2;
 	unsigned int Nineq = 2;
 	unsigned int Ntineq = 0;
-	bool with_J2 = false;
 	double stage_cost_gain = 1e-2;
 	double terminal_cost_gain = 1e4;
 	matrixdb terminal_cost_inv_covariance = inv(make_diag_matrix_(sqr(vectordb(Nx, 1e-4))));
@@ -223,10 +222,13 @@ TEST(TestSolverParameters, EmptyConstructor) {
 	double huber_loss_coefficient = 5e-3;
 	vectordb homotopy_coefficient_sequence(1, 0);
 	vectordb huber_loss_coefficient_sequence(1, 1e-2);
-	unsigned int DDP_type = 0;
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-4;
 	double PN_tol = 1e-12;
+	double LOADS_tol = 1e-2; 
+	double LOADS_max_depth = 1;
+	double AUL_transcription_parameter = 1;
+	double AUL_magnitude_perturbation = 1e-4;
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -241,8 +243,8 @@ TEST(TestSolverParameters, EmptyConstructor) {
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
 	double ToF = 0.0;
+	vectordb PN_transcription_parameters = vectordb{1.0, 1e-6, 1e-3, 0.5}; 
 	unsigned int verbosity = 0;
-	unsigned int saving_iterations = 0;
 
 	// Tests
 	EXPECT_EQ(solver_parameters.N(), N);
@@ -251,7 +253,6 @@ TEST(TestSolverParameters, EmptyConstructor) {
 	EXPECT_EQ(solver_parameters.Nineq(), Nineq);
 	EXPECT_EQ(solver_parameters.Ntineq(), Ntineq);
 	EXPECT_EQ(solver_parameters.ToF(), ToF);
-	EXPECT_EQ(solver_parameters.with_J2(), with_J2);
 	EXPECT_EQ(solver_parameters.stage_cost_gain(), stage_cost_gain);
 	EXPECT_EQ(solver_parameters.terminal_cost_gain(), terminal_cost_gain);
 	EXPECT_EQ(solver_parameters.transcription_beta(), transcription_beta);
@@ -268,10 +269,13 @@ TEST(TestSolverParameters, EmptyConstructor) {
 	EXPECT_EQ(solver_parameters.huber_loss_coefficient(), huber_loss_coefficient);
 	EXPECT_EQ(solver_parameters.homotopy_coefficient_sequence(), homotopy_coefficient_sequence);
 	EXPECT_EQ(solver_parameters.huber_loss_coefficient_sequence(), huber_loss_coefficient_sequence);
-	EXPECT_EQ(solver_parameters.DDP_type(), DDP_type);
 	EXPECT_EQ(solver_parameters.DDP_tol(), DDP_tol);
 	EXPECT_EQ(solver_parameters.AUL_tol(), AUL_tol);
 	EXPECT_EQ(solver_parameters.PN_tol(), PN_tol);
+	EXPECT_EQ(solver_parameters.LOADS_tol(), LOADS_tol);
+	EXPECT_EQ(solver_parameters.LOADS_max_depth(), LOADS_max_depth);
+	EXPECT_EQ(solver_parameters.AUL_transcription_parameter(), AUL_transcription_parameter);
+	EXPECT_EQ(solver_parameters.AUL_magnitude_perturbation(), AUL_magnitude_perturbation);
 	EXPECT_EQ(solver_parameters.DDP_max_iter(), DDP_max_iter);
 	EXPECT_EQ(solver_parameters.AUL_max_iter(), AUL_max_iter);
 	EXPECT_EQ(solver_parameters.PN_max_iter(), PN_max_iter);
@@ -285,8 +289,8 @@ TEST(TestSolverParameters, EmptyConstructor) {
 	EXPECT_EQ(solver_parameters.PN_cv_rate_threshold(), PN_cv_rate_threshold);
 	EXPECT_EQ(solver_parameters.PN_alpha(), PN_alpha);
 	EXPECT_EQ(solver_parameters.PN_gamma(), PN_gamma);
+	EXPECT_EQ(solver_parameters.PN_transcription_parameters(), PN_transcription_parameters);
 	EXPECT_EQ(solver_parameters.verbosity(), verbosity);
-	EXPECT_EQ(solver_parameters.saving_iterations(), saving_iterations);
 	for (size_t i = 0; i < N; i++) {
 		vectordb lambda_i = solver_parameters.list_lambda()[i];
 		vectordb mu_i = solver_parameters.list_mu()[i];
@@ -309,7 +313,6 @@ TEST(TestSolverParameters, FilledConstructor) {
 	unsigned int Nu = SIZE_VECTOR / 2;
 	unsigned int Nineq = 2;
 	unsigned int Ntineq = 0;
-	bool with_J2 = true;
 	double stage_cost_gain = 1e-2;
 	double terminal_cost_gain = 1e4;
 	matrixdb terminal_cost_inv_covariance = inv(make_diag_matrix_(sqr(vectordb(Nx, 2e-4))));
@@ -322,10 +325,13 @@ TEST(TestSolverParameters, FilledConstructor) {
 	double huber_loss_coefficient = 5e-3;
 	vectordb homotopy_coefficient_sequence(2, 0);
 	vectordb huber_loss_coefficient_sequence(2, 1e-2);
-	unsigned int DDP_type = 0;
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-4;
 	double PN_tol = 1e-12;
+	double LOADS_tol = 1e-3; 
+	double LOADS_max_depth = 0.05;
+	double AUL_transcription_parameter = 1.05;
+	double AUL_magnitude_perturbation = 1e-5;
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -339,12 +345,12 @@ TEST(TestSolverParameters, FilledConstructor) {
 	double PN_regularisation(1e-8);
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
+	vectordb PN_transcription_parameters = vectordb{1.0, 1e-4, 1e-2, 0.2}; 
 	double ToF = 0.0;
 	unsigned int verbosity = 1;
-	unsigned int saving_iterations = 1;
 	SolverParameters solver_parameters(
 		N, Nx, Nu,
-		Nineq, Ntineq, with_J2,
+		Nineq, Ntineq,
 		stage_cost_gain, terminal_cost_gain,
 		terminal_cost_inv_covariance,
 		navigation_error_covariance,
@@ -352,16 +358,17 @@ TEST(TestSolverParameters, FilledConstructor) {
 		homotopy_coefficient, huber_loss_coefficient,
 		homotopy_coefficient_sequence,
 		huber_loss_coefficient_sequence,
-		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
+		LOADS_tol, LOADS_max_depth, 
+		AUL_transcription_parameter, AUL_magnitude_perturbation,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,
 		backward_sweep_regulation_parameters,
 		lambda_parameters, mu_parameters,
 		PN_regularisation, PN_active_constraint_tol,
-		PN_cv_rate_threshold, PN_alpha, PN_gamma, verbosity,
-		saving_iterations);
+		PN_cv_rate_threshold, PN_alpha, PN_gamma, 
+		PN_transcription_parameters, verbosity);
 
 	// Tests
 	EXPECT_EQ(solver_parameters.N(), N);
@@ -370,7 +377,6 @@ TEST(TestSolverParameters, FilledConstructor) {
 	EXPECT_EQ(solver_parameters.Nineq(), Nineq);
 	EXPECT_EQ(solver_parameters.Ntineq(), Ntineq);
 	EXPECT_EQ(solver_parameters.ToF(), ToF);
-	EXPECT_EQ(solver_parameters.with_J2(), with_J2);
 	EXPECT_EQ(solver_parameters.stage_cost_gain(), stage_cost_gain);
 	EXPECT_EQ(solver_parameters.terminal_cost_gain(), terminal_cost_gain);
 	EXPECT_EQ(solver_parameters.transcription_beta(), transcription_beta);
@@ -387,10 +393,13 @@ TEST(TestSolverParameters, FilledConstructor) {
 	EXPECT_EQ(solver_parameters.huber_loss_coefficient(), huber_loss_coefficient);
 	EXPECT_EQ(solver_parameters.homotopy_coefficient_sequence(), homotopy_coefficient_sequence);
 	EXPECT_EQ(solver_parameters.huber_loss_coefficient_sequence(), huber_loss_coefficient_sequence);
-	EXPECT_EQ(solver_parameters.DDP_type(), DDP_type);
 	EXPECT_EQ(solver_parameters.DDP_tol(), DDP_tol);
 	EXPECT_EQ(solver_parameters.AUL_tol(), AUL_tol);
 	EXPECT_EQ(solver_parameters.PN_tol(), PN_tol);
+	EXPECT_EQ(solver_parameters.LOADS_tol(), LOADS_tol);
+	EXPECT_EQ(solver_parameters.LOADS_max_depth(), LOADS_max_depth);
+	EXPECT_EQ(solver_parameters.AUL_transcription_parameter(), AUL_transcription_parameter);
+	EXPECT_EQ(solver_parameters.AUL_magnitude_perturbation(), AUL_magnitude_perturbation);
 	EXPECT_EQ(solver_parameters.DDP_max_iter(), DDP_max_iter);
 	EXPECT_EQ(solver_parameters.AUL_max_iter(), AUL_max_iter);
 	EXPECT_EQ(solver_parameters.PN_max_iter(), PN_max_iter);
@@ -404,8 +413,8 @@ TEST(TestSolverParameters, FilledConstructor) {
 	EXPECT_EQ(solver_parameters.PN_cv_rate_threshold(), PN_cv_rate_threshold);
 	EXPECT_EQ(solver_parameters.PN_alpha(), PN_alpha);
 	EXPECT_EQ(solver_parameters.PN_gamma(), PN_gamma);
+	EXPECT_EQ(solver_parameters.PN_transcription_parameters(), PN_transcription_parameters);
 	EXPECT_EQ(solver_parameters.verbosity(), verbosity);
-	EXPECT_EQ(solver_parameters.saving_iterations(), saving_iterations);
 	for (size_t i = 0; i < N; i++) {
 		vectordb lambda_i = solver_parameters.list_lambda()[i];
 		vectordb mu_i = solver_parameters.list_mu()[i];
@@ -428,7 +437,6 @@ TEST(TestSolverParameters, CopyConstructor) {
 	unsigned int Nu = SIZE_VECTOR / 2;
 	unsigned int Nineq = 2;
 	unsigned int Ntineq = 0;
-	bool with_J2 = true;
 	double stage_cost_gain = 1e-2;
 	double terminal_cost_gain = 1e4;
 	matrixdb terminal_cost_inv_covariance = inv(make_diag_matrix_(sqr(vectordb(Nx, 2e-4))));
@@ -441,10 +449,13 @@ TEST(TestSolverParameters, CopyConstructor) {
 	double huber_loss_coefficient = 5e-3;
 	vectordb homotopy_coefficient_sequence(2, 0);
 	vectordb huber_loss_coefficient_sequence(2, 1e-2);
-	unsigned int DDP_type = 0;
 	double DDP_tol = 1e-4;
 	double AUL_tol = 1e-4;
 	double PN_tol = 1e-12;
+	double LOADS_tol = 1e-3; 
+	double LOADS_max_depth = 0.05;
+	double AUL_transcription_parameter = 1.05;
+	double AUL_magnitude_perturbation = 1e-5;
 	double PN_active_constraint_tol = 1e-13;
 	unsigned int max_iter = 10000;
 	unsigned int DDP_max_iter = 100;
@@ -459,11 +470,11 @@ TEST(TestSolverParameters, CopyConstructor) {
 	double PN_cv_rate_threshold(1.1);
 	double PN_alpha(1.0); double PN_gamma(0.5);
 	double ToF = 0.0;
+	vectordb PN_transcription_parameters = vectordb{1.0, 1e-4, 1e-2, 0.2}; 
 	unsigned int verbosity = 1;
-	unsigned int saving_iterations = 1;
 	SolverParameters solver_parameters(
 		N, Nx, Nu,
-		Nineq, Ntineq, with_J2,
+		Nineq, Ntineq,
 		stage_cost_gain, terminal_cost_gain,
 		terminal_cost_inv_covariance,
 		navigation_error_covariance,
@@ -471,16 +482,17 @@ TEST(TestSolverParameters, CopyConstructor) {
 		homotopy_coefficient, huber_loss_coefficient,
 		homotopy_coefficient_sequence,
 		huber_loss_coefficient_sequence,
-		DDP_type,
 		DDP_tol, AUL_tol, PN_tol,
+		LOADS_tol, LOADS_max_depth, 
+		AUL_transcription_parameter, AUL_magnitude_perturbation,
 		DDP_max_iter, AUL_max_iter, PN_max_iter,
 		line_search_parameters,
 		backward_sweep_regulation,
 		backward_sweep_regulation_parameters,
 		lambda_parameters, mu_parameters,
 		PN_regularisation, PN_active_constraint_tol,
-		PN_cv_rate_threshold, PN_alpha, PN_gamma, verbosity,
-		saving_iterations);
+		PN_cv_rate_threshold, PN_alpha, PN_gamma, 
+		PN_transcription_parameters, verbosity);
 	SolverParameters solver_parameters_copy = solver_parameters;
 
 	// Tests
@@ -489,7 +501,6 @@ TEST(TestSolverParameters, CopyConstructor) {
 	EXPECT_EQ(solver_parameters_copy.Nu(), Nu);
 	EXPECT_EQ(solver_parameters_copy.Nineq(), Nineq);
 	EXPECT_EQ(solver_parameters_copy.Ntineq(), Ntineq);
-	EXPECT_EQ(solver_parameters_copy.with_J2(), with_J2);
 	EXPECT_EQ(solver_parameters_copy.ToF(), ToF);
 	EXPECT_EQ(solver_parameters_copy.stage_cost_gain(), stage_cost_gain);
 	EXPECT_EQ(solver_parameters_copy.terminal_cost_gain(), terminal_cost_gain);
@@ -507,10 +518,13 @@ TEST(TestSolverParameters, CopyConstructor) {
 	EXPECT_EQ(solver_parameters_copy.huber_loss_coefficient(), huber_loss_coefficient);
 	EXPECT_EQ(solver_parameters_copy.homotopy_coefficient_sequence(), homotopy_coefficient_sequence);
 	EXPECT_EQ(solver_parameters_copy.huber_loss_coefficient_sequence(), huber_loss_coefficient_sequence);
-	EXPECT_EQ(solver_parameters_copy.DDP_type(), DDP_type);
 	EXPECT_EQ(solver_parameters_copy.DDP_tol(), DDP_tol);
 	EXPECT_EQ(solver_parameters_copy.AUL_tol(), AUL_tol);
 	EXPECT_EQ(solver_parameters_copy.PN_tol(), PN_tol);
+	EXPECT_EQ(solver_parameters.LOADS_tol(), LOADS_tol);
+	EXPECT_EQ(solver_parameters.LOADS_max_depth(), LOADS_max_depth);
+	EXPECT_EQ(solver_parameters.AUL_transcription_parameter(), AUL_transcription_parameter);
+	EXPECT_EQ(solver_parameters.AUL_magnitude_perturbation(), AUL_magnitude_perturbation);
 	EXPECT_EQ(solver_parameters_copy.DDP_max_iter(), DDP_max_iter);
 	EXPECT_EQ(solver_parameters_copy.AUL_max_iter(), AUL_max_iter);
 	EXPECT_EQ(solver_parameters_copy.PN_max_iter(), PN_max_iter);
@@ -524,8 +538,8 @@ TEST(TestSolverParameters, CopyConstructor) {
 	EXPECT_EQ(solver_parameters_copy.PN_cv_rate_threshold(), PN_cv_rate_threshold);
 	EXPECT_EQ(solver_parameters_copy.PN_alpha(), PN_alpha);
 	EXPECT_EQ(solver_parameters_copy.PN_gamma(), PN_gamma);
+	EXPECT_EQ(solver_parameters_copy.PN_transcription_parameters(), PN_transcription_parameters);
 	EXPECT_EQ(solver_parameters_copy.verbosity(), verbosity);
-	EXPECT_EQ(solver_parameters_copy.saving_iterations(), saving_iterations);
 	for (size_t i = 0; i < N; i++) {
 		vectordb lambda_i = solver_parameters_copy.list_lambda()[i];
 		vectordb mu_i = solver_parameters_copy.list_mu()[i];

@@ -62,18 +62,17 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 1e-3};
 	} else if (
-		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) { // OK
-
+		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) {
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 1e-3}; 
 		AUL_transcription_parameter = 5;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
-		homotopy_sequence = vectordb{0, 0.5, 0.95, 0.99};
+		homotopy_sequence = vectordb{0, 0.5, 0.975, 0.99};
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
-		AUL_transcription_parameter = 1; // 1.05
+		AUL_transcription_parameter = 1;
 		PN_transcription_parameters[1] = 0.1;
-		mu_parameters[2] = 2;
+		mu_parameters[2] = 1.7;
 	}
 
 	return SolverParameters(

@@ -25,7 +25,7 @@
 #include "stats.h"
 
 
-// Projected Newton transcription.
+// Adaptive first order transcription for Newton method.
 // DOI: 10.48550/arXiv.2502.15949
 DACE::vectorDA first_order_transcription(
 	DACE::vectorDA const& constraints_eval,
@@ -34,38 +34,36 @@ DACE::vectorDA first_order_transcription(
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters);
 
-// First order method.
+// First order method for path constraints.
 // DOI: 10.48550/arXiv.2502.15949
-
-// Path constraints.
 DACE::vectorDA first_order_path_transcription(
 	DACE::vectorDA const& constraints_eval, stateDA const& x_DA, controlDA const& u_DA,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters);
 
-// Terminal constraints
+// First order method for terminal constraints.
+// DOI: 10.48550/arXiv.2502.15949
 DACE::vectorDA first_order_terminal_transcription(
 	DACE::vectorDA const& constraints_eval, stateDA const& x_DA, statedb const& x_goal,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters);
 
 
-// Spectral radius method.
-// Generalisation of [Ozaki et al. 2020]
+// Spectral radius method for path constraints.
+// Generalisation of [Ridderhof et al. 2021]
 // DOI: 10.48550/arXiv.2502.15949
-
-// Path constraints.
 DACE::vectorDA spectral_radius_path_transcription( 
 	DACE::vectorDA const& constraints_eval, stateDA const& x_DA, controlDA const& u_DA,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters);
 
-// Terminal constraints
+// Spectral radius method for terminal constraints.
+// Generalisation of [Ridderhof et al. 2021]
+// DOI: 10.48550/arXiv.2502.15949
 DACE::vectorDA spectral_radius_terminal_transcription( 
 	DACE::vectorDA const& constraints_eval, stateDA const& x_DA, statedb const& x_goal,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
 	SolverParameters const& solver_parameters);
-
 
 
 #endif

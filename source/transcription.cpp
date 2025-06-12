@@ -14,7 +14,7 @@ using namespace DACE;
 using namespace std;
 
 
-// Projected Newton transcription.
+// Adaptive first order transcription for Newton method.
 // DOI: 10.48550/arXiv.2502.15949
 vectorDA first_order_transcription(
 	vectorDA const& constraints_eval,
@@ -36,40 +36,47 @@ vectorDA first_order_transcription(
 
 	// Init
 	vectorDA output(constraints_eval);
-	vectorDA norm_vector(d, 0);
+	vectorDA norm_vector(d);
+	matrixDA D_f, prod_k;
+	vector<matrixDA> list_der;
 
 	// Loop on all steps
-	for (size_t k=0; k<N; k++) {
 
-		// Evaluate constraints derivatives
-		vector<matrixDA> list_der = deriv_xu_DA(
-			constraints_eval.extract(
-				k*(Nineq + 0), (k + 1)*(Nineq + 0) - 1), Nx, Nu, false);
+	if (Nineq != 0) {
+		for (size_t k=0; k<N; k++) {
 
-		// Compute the contraints covariance
-		matrixDA D_f = (list_der[0] + list_der[1] * list_feedback_gain[k]);
-		matrixDA prod_k = D_f*list_Sigma[k];
+			// Evaluate constraints derivatives
+			list_der = deriv_xu_DA(
+				constraints_eval.extract(
+					k*(Nineq + 0), (k + 1)*Nineq - 1), Nx, Nu, false);
 
-		// Assign
-		for (size_t i=0; i<Nineq; i++) {
-			norm_vector[k*Nineq + i] = vectorDA(prod_k.getrow(i)).dot(vectorDA(D_f.getrow(i)));
+			// Compute the contraints covariance
+			D_f = (list_der[0] + list_der[1] * list_feedback_gain[k]);
+			prod_k = D_f*list_Sigma[k];
+
+			// Assign
+			for (size_t i=0; i<Nineq; i++) {
+				norm_vector[k*Nineq + i] = vectorDA(prod_k.getrow(i)).dot(vectorDA(D_f.getrow(i)));
+			}
 		}
 	}
 
 	// Terminal constraints
 
 	// Evaluate constraints derivatives
-	vector<matrixDA> list_der = deriv_x_DA(
-		constraints_eval.extract(
-			N*(Nineq + 0), N*(Nineq + 0) + (Ntineq + 0) - 1), Nx, false);
-
-	// Compute the contraints covariance
-	matrixDA D_f = list_der[0];
-	matrixDA prod_N = D_f*list_Sigma[N];
+	if (Ntineq != 0) {
+		list_der = deriv_x_DA(
+					constraints_eval.extract(
+						N*Nineq, N*Nineq + Ntineq - 1), Nx, false);
+				
+		// Compute the contraints covariance
+		D_f = list_der[0];
+		prod_k = D_f*list_Sigma[N];
+	}
 
 	// Assign
 	for (size_t i=0; i<Ntineq; i++) {
-		norm_vector[N*Nineq + i] = vectorDA(prod_N.getrow(i)).dot(vectorDA(D_f.getrow(i)));
+		norm_vector[N*Nineq + i] = vectorDA(prod_k.getrow(i)).dot(vectorDA(D_f.getrow(i)));
 	}
 
 	// Build output vector
@@ -107,9 +114,8 @@ vectorDA first_order_transcription(
 	return output;
 }
 
-// First order method.
+// First order method for path constraints.
 // DOI: 10.48550/arXiv.2502.15949
-// Path constraints.
 vectorDA first_order_path_transcription(
 	vectorDA const& constraints_eval, stateDA const& x_DA, controlDA const& u_DA,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
@@ -139,9 +145,8 @@ vectorDA first_order_path_transcription(
 	return transcribed_constraints;
 }
 
-// First order method.
+// First order method for terminal constraints.
 // DOI: 10.48550/arXiv.2502.15949
-// Terminal constraints.
 vectorDA first_order_terminal_transcription(
 	vectorDA const& constraints_eval, stateDA const& x_DA, statedb const& x_goal,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
@@ -171,10 +176,9 @@ vectorDA first_order_terminal_transcription(
 	return transcribed_constraints;
 }
 
-// Spectral radius method.
-// Generalisation of [Ozaki et al. 2020]
+// Spectral radius method for path constraints.
+// Generalisation of [Ridderhof et al. 2021]
 // DOI: 10.48550/arXiv.2502.15949
-// Path constraints.
 vectorDA spectral_radius_path_transcription(
 	vectorDA const& constraints_eval, stateDA const& x_DA, controlDA const& u_DA,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
@@ -216,10 +220,9 @@ vectorDA spectral_radius_path_transcription(
 	return transcribed_constraints;
 }
 
-// Spectral radius method.
-// Generalisation of [Ozaki et al. 2020]
+// Spectral radius method for terminal constraints.
+// Generalisation of [Ridderhof et al. 2021]
 // DOI: 10.48550/arXiv.2502.15949
-// Terminal constraints.
 vectorDA spectral_radius_terminal_transcription(
 	vectorDA const& constraints_eval, stateDA const& x_DA, statedb const& x_goal,
 	SpacecraftParameters const& spacecraft_parameters, Constants const& constants,
