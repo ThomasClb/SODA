@@ -47,7 +47,7 @@ In the SODA folder run:
 ```
 Leaving the parameters field empty will return an error message that will inform you on what are the available options.
 
-These parameters consist of 9 arguments:
+These parameters consist of 14 arguments:
 - Test case ID.
 - The address of the SpacecraftParameter. (They consist of the dynamical system, followed by the thrust-to-mass ratio of the spacecraft)
 - The number of trajectory segments N?

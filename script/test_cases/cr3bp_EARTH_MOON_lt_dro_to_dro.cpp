@@ -68,10 +68,11 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		AUL_transcription_parameter = 2.0;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
-		AUL_magnitude_perturbation = 5*AUL_tol; // 5
-		homotopy_sequence = vectordb{0, 0.9, 0.99};
-		huber_loss_coefficient_sequence = vectordb{1e-2, 5e-3, 1e-3}; 
-		mu_parameters[2] = 8;
+		AUL_magnitude_perturbation = 5*AUL_tol;
+		homotopy_sequence = vectordb{0, 0.9, 0.975, 0.99};
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 5e-4, 5e-4};
+		mu_parameters[2] = 1.5;
+		AUL_transcription_parameter = 3;
 	}
 
 	return SolverParameters(
