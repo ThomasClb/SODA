@@ -1,6 +1,8 @@
 # SODA
 A Stochastic Optimisation solver with Differential Algebra.
 
+<img src="https://github.com/ThomasClb/SODA/blob/main/logo.png" width="350">
+
 ## Requirements
 To use the SODA code, you need a C++11 compiler.
 
