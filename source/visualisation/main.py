@@ -13,8 +13,8 @@ import os, sys
 
 from classes import Constants, SpacecraftParameters, Dataset
 from plot_2d import plot_2d
-from plot_2d_pdf import plot_2d_pdf
 from plot_thrust_profile import plot_thrust_profile
+from plot_2d_combined import plot_gif
 import matplotlib.pyplot as plt
 
 global ALPHA_0_GMM, ALPHA_1_GMM
@@ -101,10 +101,12 @@ if __name__ == "__main__":
     # Plots
 
     # Astrodynamics test cases.
+    plot_gif(dataset_robust, dataset_sample)
+    """
     plot_thrust_profile(dataset_robust, dataset_sample)
     for i in list_2d:
         if i in file_name_robust:
             plot_2d(dataset_robust, dataset_sample)
             plot_2d_pdf(dataset_robust, dataset_sample)
             break
-    
+    """
