@@ -15,6 +15,7 @@ from classes import Constants, SpacecraftParameters, Dataset
 from plot_2d import plot_2d
 from plot_thrust_profile import plot_thrust_profile
 from plot_2d_combined import plot_gif
+from plot_2d_pdf import plot_2d_pdf
 import matplotlib.pyplot as plt
 
 global ALPHA_0_GMM, ALPHA_1_GMM
@@ -56,7 +57,8 @@ if __name__ == "__main__":
     ToF = int(list_arguments[4])
     show_sample = int(list_arguments[5])
     
-    extra = "" # At the end of the file name.
+    extra = ""
+    # extra = str(list_arguments[6]) # At the end of the file name.
     
     # Make two names depending ontest case.
     file_name = "./data/"
@@ -83,8 +85,8 @@ if __name__ == "__main__":
     
     if extra != "":
         extra = "_" + extra
-    file_name_robust = file_name_robust + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + extra + ".dat"
-    file_name_sample = file_name_sample + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + extra + ".dat"
+    file_name_robust = file_name_robust + extra + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + ".dat"
+    file_name_sample = file_name_sample + extra + "_" + str(inv_LOADS_max_depth) + "_" + str(inv_beta) + "_" + T2m_ratio + "_" + str(ToF) + ".dat"
     
     # Keywords to generate 2d plots and thurst plot.
     list_2d = ["tbp", "lyapunov", "dro", "leo", "meo", "halo"]
@@ -101,12 +103,11 @@ if __name__ == "__main__":
     # Plots
 
     # Astrodynamics test cases.
-    plot_gif(dataset_robust, dataset_sample)
-    """
+    #plot_gif(dataset_robust, dataset_sample)
+    
     plot_thrust_profile(dataset_robust, dataset_sample)
     for i in list_2d:
         if i in file_name_robust:
             plot_2d(dataset_robust, dataset_sample)
             plot_2d_pdf(dataset_robust, dataset_sample)
             break
-    """

@@ -58,6 +58,10 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 	double PN_alpha(1.0); double PN_gamma(0.5);
 	vectordb PN_transcription_parameters{1.0, 1e-6, 1e-3, 0.2};
 
+	DDP_max_iter = 500;
+	AUL_max_iter = 200;
+	PN_max_iter = 2000;
+
 	if (!robust_solving){
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 2e-3, 1e-3, 5e-4};
@@ -74,6 +78,11 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_dro_to_dro(
 		mu_parameters[2] = 1.5;
 		AUL_transcription_parameter = 3;
 	}
+
+	terminal_cost_gain = 1e5;
+	cost_to_go_gain = 1e-1;
+	homotopy_sequence = vectordb{0, 0.95, 0.999};
+	huber_loss_coefficient_sequence = vectordb{1e-2, 1e-3, 5e-4};	
 
 	return SolverParameters(
 		N, Nx, Nu,
@@ -105,8 +114,7 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	if (argc < 13) {
 		cout << "Wrong number of arguments." << endl;
 		cout << "Requested number : 12" << endl;
-		cout << "0 - SpacecraftParameter adress." << endl;
-		cout << "1 - DDP type [0/1]." << endl;
+		cout << "1 - SpacecraftParameter adress." << endl;
 		cout << "2 - Number of nodes [-]." << endl;
 		cout << "3 - Time of flight [days]." << endl;
 		cout << "4 - Perform robust optimisation [0/1]." << endl;
@@ -122,6 +130,7 @@ void cr3bp_EARTH_MOON_lt_dro_to_dro(int argc, char** argv) {
 	}
 
 	// Unpack inputs
+	
 	string spacecraft_parameters_file = argv[2];
 	unsigned int N = atoi(argv[3]);
 	double ToF = atof(argv[4]);

@@ -61,18 +61,31 @@ SolverParameters get_SolverParameters_cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(
 	if (!robust_solving){
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 1e-3};
+
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3}; 
+
+		
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.5) ) {
 		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.99}; 
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 1e-3}; 
+
+		homotopy_sequence = vectordb{0, 0.5, 0.9, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3}; 
+
+
 		AUL_transcription_parameter = 5;
 	} else if (
 		(transcription_beta == 0.05 && LOADS_max_depth == 0.05)) {
 		homotopy_sequence = vectordb{0, 0.5, 0.975, 0.99};
 		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3};
-		AUL_transcription_parameter = 1;
-		PN_transcription_parameters[1] = 0.1;
-		mu_parameters[2] = 1.7;
+
+		homotopy_sequence = vectordb{0, 0.5, 0.95, 0.995}; 
+		huber_loss_coefficient_sequence = vectordb{1e-2, 1e-2, 5e-3, 2e-3}; 
+
+
+		mu_parameters[2] = 5;
 	}
 
 	return SolverParameters(
@@ -238,7 +251,7 @@ void cr3bp_EARTH_MOON_lt_haloL2_to_haloL1(int argc, char** argv) {
 			500);
 
 	// Print datasets
-		if (save_results) {
+	if (save_results) {
 		string file_name = "./data/sample_trajectory/cr3bp_EARTH_MOON_lt_haloL2_to_haloL1";
 		print_sample_trajectory_dataset(
 				file_name, system_name,

@@ -713,6 +713,8 @@ def plot_gif(dataset, dataset_sample=Dataset()):
     list_axis = [[0, 1]]
     if "halo" in dataset.file_name:
         list_axis = [[0, 2]]
+    if "nrho" in dataset.file_name:
+        list_axis = [[0, 1],[1, 2]]
 
     # Normalisation
     denormalise = False
